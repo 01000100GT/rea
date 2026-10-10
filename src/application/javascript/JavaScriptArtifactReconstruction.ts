@@ -122,8 +122,16 @@ export const reconstructJavaScriptArtifact = async (
       );
       // Release acquisition before analysis consumes these owned file facts.
       const earlyCleanup = await scope.release(readerOwner);
-      if (earlyCleanup.kind === "failed") throw earlyCleanup.cause;
       readerOpen = false;
+      if (earlyCleanup.kind === "failed")
+        throw ArtifactReaderFailure.withCleanup(
+          earlyCleanup.cause,
+          ArtifactReaderFailure.cleanupObservation(
+            earlyCleanup.cause,
+            readerOwner.resource,
+          ),
+          { kind: "artifact-inventory", inventory: snapshot },
+        );
       await reportPhase(
         "parse_javascript_sources",
         `Parsing and projecting ${String(files.files.length)} application source files`,

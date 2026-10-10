@@ -233,6 +233,10 @@ it("returns a directly usable partial analysis reference for an oversized timeou
       parse_failures: 0,
     });
     expect(summary.coverage.semantic_unknowns).toBeGreaterThan(1500);
+    await verifyRepeatedSourcePaths(
+      client,
+      projected.error.details.partial_observation,
+    );
     await client.ping();
     const next = await client.callTool({
       name: "analyze_javascript_application",
@@ -269,4 +273,59 @@ const createResourceClient = () => {
     if (diagnostics.length < 262144) diagnostics += chunk.toString();
   });
   return { client, transport, diagnostics: () => diagnostics };
+};
+
+const verifyRepeatedSourcePaths = async (
+  client: Client,
+  source: { readonly kind: "retained-evidence"; readonly evidence_id: string },
+): Promise<void> => {
+  const page = await client.callTool({
+    name: "inspect_analysis_view",
+    arguments: {
+      source,
+      view: { kind: "page", collection: "modules", offset: 0, limit: 4 },
+    },
+  });
+  expect(page.isError).not.toBe(true);
+  const modules = z
+    .object({
+      normalized_result: z.object({
+        items: z.array(z.object({ kind: z.string(), node_id: z.string() })),
+      }),
+    })
+    .parse(page.structuredContent);
+  const asset = modules.normalized_result.items.find(
+    ({ kind }) => kind === "javascript-asset",
+  );
+  if (asset === undefined)
+    throw new Error(
+      "Identical source files disappeared from the retained graph",
+    );
+  const item = await client.callTool({
+    name: "inspect_analysis_view",
+    arguments: {
+      source,
+      view: {
+        kind: "item",
+        collection: "modules",
+        selector: { node_id: asset.node_id },
+      },
+    },
+  });
+  expect(item.isError).not.toBe(true);
+  const observations = z
+    .object({
+      normalized_result: z.object({
+        item: z.object({
+          observations: z.array(z.object({ label: z.string() })),
+        }),
+      }),
+    })
+    .parse(item.structuredContent).normalized_result.item.observations;
+  expect(observations.map(({ label }) => label).sort()).toEqual(
+    Array.from(
+      { length: 1500 },
+      (_, index) => `file-${String(index)}.js`,
+    ).sort(),
+  );
 };
