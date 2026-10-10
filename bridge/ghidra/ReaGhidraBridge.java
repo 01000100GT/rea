@@ -1041,6 +1041,8 @@ public final class ReaGhidraBridge extends HeadlessScript {
         try {
             String leafName = params.has("name")
                 ? symbolLeafName(function.getSymbol(), requireString(params, "name")) : null;
+            if (leafName != null)
+                requireAvailableAddressName(entry, function.getParentNamespace(), leafName);
             // Validate edits through Ghidra's own setters, including name rules.
             // A later invalid name must roll back earlier comment writes.
             for (String field : List.of("comment", "inline_comment")) {
@@ -1103,6 +1105,17 @@ public final class ReaGhidraBridge extends HeadlessScript {
                 canonicalAddress(symbol.getAddress()) + ": " + requested);
         }
         return requested;
+    }
+
+    private void requireAvailableAddressName(Address address,
+            ghidra.program.model.symbol.Namespace namespace, String name)
+            throws ghidra.util.exception.DuplicateNameException {
+        for (Symbol owner : currentProgram.getSymbolTable().getSymbols(name, namespace)) {
+            if (!owner.getAddress().equals(Address.NO_ADDRESS) && !owner.getAddress().equals(address))
+                throw new ghidra.util.exception.DuplicateNameException(
+                    "Symbol name " + name + " is already owned at " +
+                    canonicalAddress(owner.getAddress()) + " in namespace " + namespace.getName(true));
+        }
     }
 
     private static String requireText(JsonObject params, String field) {
@@ -1434,20 +1447,19 @@ public final class ReaGhidraBridge extends HeadlessScript {
         boolean commit = false;
         try {
             Function function = currentProgram.getFunctionManager().getFunctionAt(address);
-            String expected = name;
+            var table = currentProgram.getSymbolTable();
+            Symbol primary = function == null ? table.getPrimarySymbol(address) : function.getSymbol();
+            boolean existing = primary != null && !primary.isDynamic();
+            String expected = existing ? symbolLeafName(primary, name) : name;
+            requireAvailableAddressName(address,
+                existing ? primary.getParentNamespace() : currentProgram.getGlobalNamespace(), expected);
             if (function != null) {
-                expected = symbolLeafName(function.getSymbol(), name);
                 function.setName(expected, SourceType.USER_DEFINED);
+            } else if (existing) {
+                primary.setName(expected, SourceType.USER_DEFINED);
             } else {
-                var table = currentProgram.getSymbolTable();
-                Symbol primary = table.getPrimarySymbol(address);
-                if (primary != null && !primary.isDynamic()) {
-                    expected = symbolLeafName(primary, name);
-                    primary.setName(expected, SourceType.USER_DEFINED);
-                } else {
-                    Symbol created = table.createLabel(address, name, SourceType.USER_DEFINED);
-                    created.setPrimary();
-                }
+                Symbol created = table.createLabel(address, expected, SourceType.USER_DEFINED);
+                created.setPrimary();
             }
             invalidateAnalysisCaches();
             Symbol readback = currentProgram.getSymbolTable().getPrimarySymbol(address);

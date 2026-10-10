@@ -62,6 +62,7 @@ export async function verifyGhidraNamespaceAnnotations({
       assert.ok(symbol, `Missing demangled fixture global ${namespace}::value`);
       return { namespace, address: symbol.address };
     });
+    await verifyAddressNameCollisions(call, reject, procedures, names);
     const ambiguous = await reject("procedure_address", { procedure: "same" });
     assert.equal(ambiguous.code, "invalid_request");
     for (const { address } of entries)
@@ -133,7 +134,11 @@ export async function verifyGhidraNamespaceAnnotations({
       });
       assert.deepEqual(unchanged.annotations, qualified.annotations);
     }
-    await verifyAddressNames(call, [entries[0], entries[2], ...globals]);
+    await verifyAddressNames(call, [
+      { ...entries[0], kind: "function" },
+      { ...entries[2], kind: "function" },
+      ...globals.map((symbol) => ({ ...symbol, kind: "label" })),
+    ]);
     for (const { namespace, address } of entries) {
       assert.equal(
         await call("set_address_name", {
@@ -177,13 +182,142 @@ export async function verifyGhidraNamespaceAnnotations({
   }
 }
 
-async function verifyAddressNames(call, symbols) {
-  for (const { namespace, address } of symbols) {
+async function verifyAddressNameCollisions(call, reject, procedures, names) {
+  const find = (items, name) => {
+    const symbol = items.find(
+      (item) => item.value === name || item.value === `_${name}`,
+    );
+    assert.ok(symbol, `Missing naming collision fixture ${name}`);
+    return symbol;
+  };
+  const first = find(procedures, "rea_name_first");
+  const second = find(procedures, "rea_name_second");
+  const firstLabel = find(names, "rea_name_data_first");
+  const secondLabel = find(names, "rea_name_data_second");
+  for (const [owner, other, name] of [
+    [first, second, "owned_function"],
+    [firstLabel, secondLabel, "owned_label"],
+  ]) {
     assert.equal(
-      await call("set_address_name", { address, name: "address_renamed" }),
+      await call("set_address_name", { address: owner.address, name }),
       true,
     );
-    const qualified = `${namespace}::address_qualified`;
+    assert.equal(
+      await call("set_address_name", { address: other.address, name }),
+      false,
+      "A different address must not acquire the existing name",
+    );
+    assert.equal(
+      await call("address_name", { address: other.address }),
+      other.value,
+    );
+    assert.equal(
+      await call("set_address_name", { address: owner.address, name }),
+      true,
+      "The owning address may repeat the same name",
+    );
+  }
+  for (const [address, name, original] of [
+    [first.address, "owned_label", "owned_function"],
+    [firstLabel.address, "owned_function", "owned_label"],
+  ]) {
+    assert.equal(await call("set_address_name", { address, name }), false);
+    assert.equal(await call("address_name", { address }), original);
+  }
+  const alphaFunction = find(procedures, "alpha::same");
+  const alphaLabel = find(names, "alpha::value");
+  for (const name of ["value", "alpha::value"]) {
+    assert.equal(
+      await call("set_address_name", { address: alphaFunction.address, name }),
+      false,
+    );
+    assert.equal(
+      await call("address_name", { address: alphaFunction.address }),
+      alphaFunction.value,
+    );
+  }
+  assert.equal(
+    await call("set_address_name", {
+      address: alphaLabel.address,
+      name: "same",
+    }),
+    false,
+  );
+  assert.equal(
+    await call("address_name", { address: alphaLabel.address }),
+    alphaLabel.value,
+  );
+  assert.deepEqual(
+    await call("set_addresses_names", {
+      names: {
+        [secondLabel.address]: "batch_available",
+        [second.address]: "owned_function",
+        [firstLabel.address]: "owned_label",
+      },
+    }),
+    {
+      [secondLabel.address]: true,
+      [second.address]: false,
+      [firstLabel.address]: true,
+    },
+  );
+  assert.equal(
+    await call("address_name", { address: second.address }),
+    second.value,
+  );
+  assert.equal(
+    await call("address_name", { address: first.address }),
+    "owned_function",
+  );
+  assert.equal(
+    await call("address_name", { address: secondLabel.address }),
+    "batch_available",
+  );
+  const before = await call("annotate_native_function", {
+    procedure: second.address,
+    comment: "Keep this comment",
+    inline_comment: "Keep this inline comment",
+  });
+  const failure = await reject("annotate_native_function", {
+    procedure: second.address,
+    name: "owned_function",
+    comment: "MUST NOT REPLACE",
+    inline_comment: "MUST NOT REPLACE",
+  });
+  assert.equal(failure.code, "invalid_request");
+  assert.deepEqual(failure.details.issues[0].path, ["name"]);
+  const unchanged = await call("annotate_native_function", {
+    procedure: second.address,
+    name: second.value,
+  });
+  assert.deepEqual(unchanged.annotations, before.annotations);
+  assert.equal(
+    await call("set_address_name", {
+      address: first.address,
+      name: "released_function",
+    }),
+    true,
+  );
+  assert.equal(
+    await call("set_address_name", {
+      address: second.address,
+      name: "owned_function",
+    }),
+    true,
+    "A name becomes available after its old owner releases it",
+  );
+}
+
+async function verifyAddressNames(call, symbols) {
+  for (const { namespace, address, kind } of symbols) {
+    assert.equal(
+      await call("set_address_name", {
+        address,
+        name: `address_renamed_${kind}`,
+      }),
+      true,
+    );
+    const qualified = `${namespace}::address_qualified_${kind}`;
     assert.equal(
       await call("set_address_name", { address, name: qualified }),
       true,
@@ -247,14 +381,14 @@ async function verifyAddressNames(call, symbols) {
   );
   assert.equal(
     await call("address_name", { address: invalid.address }),
-    `${invalid.namespace}::address_qualified`,
+    `${invalid.namespace}::address_qualified_${invalid.kind}`,
   );
   const names = await call("list_names");
-  for (const { namespace, address } of symbols) {
+  for (const { namespace, address, kind } of symbols) {
     const expected =
       address === valid.address
         ? `${namespace}::batch_renamed`
-        : `${namespace}::address_qualified`;
+        : `${namespace}::address_qualified_${kind}`;
     assert.ok(
       names.some(
         (item) =>

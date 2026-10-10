@@ -400,8 +400,11 @@ GUI authority, and REA never falls back automatically to Hopper.
 `set_address_name` and `set_addresses_names` give Ghidra sessions the same
 compact naming results as Hopper: a local function entry renames that function,
 and any other mapped address, such as a global, receives a new or renamed primary
-label. A batch applies each address separately and reports one success boolean
-per address. Use them to name many globals and helpers cheaply; use
+label. Names owned by another address in the same namespace are rejected;
+the same leaf name remains valid in a different namespace. A batch applies each
+address separately and reports one success boolean per address, preserving the
+other entries when one fails. Ghidra batches do not move or swap names. Use them
+to name many globals and helpers cheaply; use
 `annotate_native_function` when you also want comments and a refreshed dossier.
 Ghidra name edits preserve the existing namespace. Supply either a leaf name
 such as `renamed` or a fully qualified name in that namespace, such as
