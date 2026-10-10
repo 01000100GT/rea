@@ -8,6 +8,7 @@ import {
   classifyParsedJavaScriptOpenReceiversSteps,
 } from "../../domain/javascript/javascriptSemanticAnalysis.js";
 import type { JavaScriptSemanticIr } from "../../domain/javascript/javascriptSemanticIr.js";
+import { projectJavaScriptModuleSemantics } from "../../domain/javascript/javascriptModuleSemanticIr.js";
 import { parseJavaScriptSource } from "../../domain/javascript/javascriptSourceParser.js";
 import { hasValidSourceMapContents } from "../../domain/sourceMapContents.js";
 import { flattenSourceMapLeaves } from "../../domain/sourceMapEnvelope.js";
@@ -95,27 +96,7 @@ export const analyzeAndProjectJavaScriptArtifactFiles = async (
   ): Generator<void, JavaScriptModuleSemanticIr> {
     const projection = projectSemantics(file, ir);
     if (projection !== undefined) while (projection.next().done !== true) yield;
-    const programScopes = ir.scopes.filter(({ kind }) => kind === "program");
-    const programScopeId = programScopes[0]?.scopeId;
-    const localNames = new Set(
-      ir.moduleLinks.map(({ localName }) => localName),
-    );
-    const callableIds = new Set(
-      ir.moduleLinks.map(({ callableId }) => callableId),
-    );
-    return {
-      scopes: programScopes,
-      bindings: ir.bindings.filter(
-        ({ name, scopeId }) =>
-          scopeId === programScopeId && localNames.has(name),
-      ),
-      callables: ir.callables.filter(({ callableId }) =>
-        callableIds.has(callableId),
-      ),
-      moduleLinks: ir.moduleLinks,
-      coverage: ir.coverage,
-      limitations: ir.limitations,
-    };
+    return projectJavaScriptModuleSemantics(ir);
   };
   const context = { state, projectSemantics: projectFileSemantics };
   for (const [index, file] of fileSet.files.entries()) {

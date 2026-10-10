@@ -4,6 +4,7 @@ import type {
   JavaScriptStaticAnalysis,
 } from "../../domain/javascript/javascriptStaticAnalysisTypes.js";
 import type { JavaScriptSemanticIr } from "../../domain/javascript/javascriptSemanticIr.js";
+import type { JavaScriptModuleSemanticIr } from "../../domain/javascript/javascriptModuleSemanticIr.js";
 import type { JavaScriptArtifactFile } from "../../domain/javascript/javascriptArtifactFiles.js";
 
 interface JavaScriptStructuredObservation {
@@ -89,15 +90,7 @@ export type JavaScriptJsonModuleObservation = JavaScriptStructuredObservation &
   );
 
 /** Module facts needed after file-local semantic projection has finished. */
-export type JavaScriptModuleSemanticIr = Pick<
-  JavaScriptSemanticIr,
-  | "scopes"
-  | "bindings"
-  | "callables"
-  | "moduleLinks"
-  | "coverage"
-  | "limitations"
->;
+export type { JavaScriptModuleSemanticIr } from "../../domain/javascript/javascriptModuleSemanticIr.js";
 
 /** One relevant file plus optional AST-only JavaScript facts. */
 export interface AnalyzedJavaScriptArtifactFile<

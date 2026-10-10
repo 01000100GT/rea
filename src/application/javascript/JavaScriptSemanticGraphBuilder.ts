@@ -55,6 +55,7 @@ import {
   bindSemanticGraphApplicationNodes,
   type SemanticGraphProjectionState as BuilderState,
 } from "./JavaScriptSemanticGraphConstruction.js";
+import type { JavaScriptSemanticFileProjection } from "../../domain/javascript/javascriptSemanticFileProjection.js";
 
 interface BuilderInput {
   readonly rootArtifactSha256: string;
@@ -126,6 +127,12 @@ export const buildJavaScriptSemanticGraph = ({
 
 /** File-local semantic projection that does not retain consumed source IR. */
 export interface JavaScriptSemanticGraphProjection {
+  /** Node capacity offered to the next independently analyzed source file. */
+  readonly remainingFileNodeBudget: () => number;
+  /** Adopt decoded file-local facts; final validation and proof remain in this realm. */
+  readonly adoptFileProjection: (
+    projection: JavaScriptSemanticFileProjection,
+  ) => void;
   readonly projectFile: (
     file: JavaScriptArtifactFile,
     ir: JavaScriptSemanticIr,
@@ -252,6 +259,36 @@ export const createJavaScriptSemanticGraphProjection =
       return graph;
     };
     return {
+      remainingFileNodeBudget: () =>
+        Math.min(
+          SEMANTIC_GRAPH_FILE_NODE_CEILING,
+          Math.max(0, SEMANTIC_GRAPH_NODE_CEILING - state.nodes.size),
+        ),
+      adoptFileProjection: (projection) => {
+        const newNodes = projection.nodes.filter(
+          ({ node_id }) => !state.nodes.has(node_id),
+        );
+        if (
+          newNodes.length >
+          Math.min(
+            SEMANTIC_GRAPH_FILE_NODE_CEILING,
+            SEMANTIC_GRAPH_NODE_CEILING - state.nodes.size,
+          )
+        )
+          throw new RangeError(
+            "Transferred semantic nodes exceed the offered tree capacity",
+          );
+        for (const context of projection.evidenceContexts)
+          state.evidenceContexts.adopt(context);
+        for (const node of newNodes) state.nodes.set(node.node_id, node);
+        for (const relation of projection.relations)
+          state.relations.set(relation.relation_id, relation);
+        for (const unknown of projection.unknowns)
+          state.unknowns.set(unknown.unknown_id, unknown);
+        for (const root of projection.roots) state.roots.add(root);
+        fingerprints.push(...projection.fingerprints);
+        if (projection.truncated) truncatedFiles += 1;
+      },
       projectFile: (file, ir) => {
         const steps = projectSourceSteps(file, ir);
         while (steps.next().done !== true);
@@ -271,6 +308,35 @@ export const createJavaScriptSemanticGraphProjection =
         ),
     };
   };
+
+/** Project one source with the parent's remaining node capacity, retaining no full IR. */
+export function* projectJavaScriptSemanticFileSteps(
+  file: JavaScriptArtifactFile,
+  ir: JavaScriptSemanticIr,
+  nodeBudget: number,
+): Generator<void, JavaScriptSemanticFileProjection> {
+  if (
+    !Number.isSafeInteger(nodeBudget) ||
+    nodeBudget < 0 ||
+    nodeBudget > SEMANTIC_GRAPH_FILE_NODE_CEILING
+  )
+    throw new RangeError(
+      "File semantic projection requires a valid offered node capacity",
+    );
+  const state = emptyState();
+  state.fileNodeBudget = nodeBudget;
+  state.fileNodesDropped = false;
+  const fingerprints = yield* projectFileSteps(file, ir, state);
+  return {
+    roots: [...state.roots],
+    evidenceContexts: state.evidenceContexts.contexts,
+    nodes: [...state.nodes.values()],
+    relations: [...state.relations.values()],
+    unknowns: [...state.unknowns.values()],
+    fingerprints,
+    truncated: Boolean(state.fileNodesDropped),
+  };
+}
 
 function* projectFileSteps(
   file: JavaScriptArtifactFile,
