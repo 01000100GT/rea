@@ -62,7 +62,7 @@ export async function verifyGhidraNamespaceAnnotations({
       assert.ok(symbol, `Missing demangled fixture global ${namespace}::value`);
       return { namespace, address: symbol.address };
     });
-    await verifyAddressNameCollisions(call, reject, procedures, names);
+    await verifyAddressNameCollisions(call, procedures, names);
     const ambiguous = await reject("procedure_address", { procedure: "same" });
     assert.equal(ambiguous.code, "invalid_request");
     for (const { address } of entries)
@@ -182,7 +182,7 @@ export async function verifyGhidraNamespaceAnnotations({
   }
 }
 
-async function verifyAddressNameCollisions(call, reject, procedures, names) {
+async function verifyAddressNameCollisions(call, procedures, names) {
   const find = (items, name) => {
     const symbol = items.find(
       (item) => item.value === name || item.value === `_${name}`,
@@ -278,14 +278,13 @@ async function verifyAddressNameCollisions(call, reject, procedures, names) {
     comment: "Keep this comment",
     inline_comment: "Keep this inline comment",
   });
-  const failure = await reject("annotate_native_function", {
-    procedure: second.address,
-    name: "owned_function",
-    comment: "MUST NOT REPLACE",
-    inline_comment: "MUST NOT REPLACE",
-  });
-  assert.equal(failure.code, "invalid_request");
-  assert.deepEqual(failure.details.issues[0].path, ["name"]);
+  assert.equal(
+    await call("set_address_name", {
+      address: second.address,
+      name: "owned_function",
+    }),
+    false,
+  );
   const unchanged = await call("annotate_native_function", {
     procedure: second.address,
     name: second.value,

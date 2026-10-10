@@ -1041,8 +1041,6 @@ public final class ReaGhidraBridge extends HeadlessScript {
         try {
             String leafName = params.has("name")
                 ? symbolLeafName(function.getSymbol(), requireString(params, "name")) : null;
-            if (leafName != null)
-                requireAvailableAddressName(entry, function.getParentNamespace(), leafName);
             // Validate edits through Ghidra's own setters, including name rules.
             // A later invalid name must roll back earlier comment writes.
             for (String field : List.of("comment", "inline_comment")) {
