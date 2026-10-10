@@ -356,7 +356,7 @@ export class JavaScriptAnalysisWorker {
         break;
       }
     } catch (cause: unknown) {
-      const error = this.#failure(cause, file.path, deadline);
+      const error = this.#failure(cause, file.path, deadline, signal);
       this.#lastFailure = error;
       // Complete checkpoints remain readable after a child crash or cancellation.
       const cleanup = await this.#stop(error);
@@ -632,8 +632,15 @@ export class JavaScriptAnalysisWorker {
     cause: unknown,
     path: string,
     deadline: ProviderStartupDeadline | undefined,
+    signal?: AbortSignal,
   ): AnalysisError {
-    if (deadline?.interruption === "cancelled")
+    // Ownership preparation can observe cancellation before the source deadline exists.
+    if (
+      deadline?.interruption === "cancelled" ||
+      (deadline === undefined &&
+        signal?.aborted === true &&
+        !(cause instanceof ProviderCleanupError))
+    )
       return new AnalysisCancelledError(OPERATION, {
         capturedOutput: this.#captured(),
       });
