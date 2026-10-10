@@ -25,7 +25,11 @@ import {
   createJavaScriptSemanticGraphProjection,
   projectJavaScriptSemanticFileSteps,
 } from "../../../src/application/javascript/JavaScriptSemanticGraphBuilder.js";
-import { projectJavaScriptModuleSemantics } from "../../../src/domain/javascript/javascriptModuleSemanticIr.js";
+import {
+  projectJavaScriptModuleSemantics,
+  type JavaScriptModuleSemanticIr,
+} from "../../../src/domain/javascript/javascriptModuleSemanticIr.js";
+import type { JavaScriptStaticAnalysis } from "../../../src/domain/javascript/javascriptStaticAnalysisTypes.js";
 import { completeJavaScriptAnalysisSteps } from "../../../src/application/javascript/JavaScriptAnalysisControl.js";
 import {
   writeJavaScriptAnalysisTransfer,
@@ -118,13 +122,15 @@ it("preserves graph commitments and export shapes when consuming file-local IR",
     expect(parseJavaScriptSemanticGraph(semantic)).toEqual(semantic);
     const transferred = createJavaScriptSemanticGraphProjection();
     const wireRoot = await createTestTempDirectory("rea-javascript-transfer-");
+    const decodedModules = new Map<string, JavaScriptModuleSemanticIr>();
+    const decodedStatic = new Map<string, JavaScriptStaticAnalysis>();
     let rejectedInvalidTransfer = false;
     for (const [index, analyzed] of full.files.entries()) {
       if (analyzed.javascript !== null) {
         const raw: unknown = JSON.parse(JSON.stringify(analyzed.javascript));
-        expect(javaScriptWorkerStaticAnalysisSchema.parse(raw)).toEqual(
-          analyzed.javascript,
-        );
+        const decodedFacts = javaScriptWorkerStaticAnalysisSchema.parse(raw);
+        expect(decodedFacts).toEqual(analyzed.javascript);
+        decodedStatic.set(analyzed.file.path, decodedFacts);
       }
       if (analyzed.semantic === null) continue;
       const fragment = await completeJavaScriptAnalysisSteps(
@@ -147,6 +153,7 @@ it("preserves graph commitments and export shapes when consuming file-local IR",
         analyzed.file,
       );
       expect(decoded.module).toEqual(module);
+      decodedModules.set(analyzed.file.path, decoded.module);
       transferred.adoptFileProjection(decoded.projection);
       if (!rejectedInvalidTransfer) {
         await expect(
@@ -186,8 +193,24 @@ it("preserves graph commitments and export shapes when consuming file-local IR",
         rejectedInvalidTransfer = true;
       }
     }
+    const decodedGraph = buildJavaScriptArtifactGraph(snapshot, files, {
+      ...compact,
+      files: compact.files.map((analyzed) => {
+        const module = decodedModules.get(analyzed.file.path);
+        return {
+          ...analyzed,
+          javascript:
+            decodedStatic.get(analyzed.file.path) ?? analyzed.javascript,
+          semantic: module === undefined ? analyzed.semantic : { ir: module },
+        };
+      }),
+    });
+    expect(decodedGraph).toEqual(graph);
     const resealed = await completeJavaScriptAnalysisSteps(
-      transferred.finishImmutableSteps(snapshot.manifest.root_sha256, graph),
+      transferred.finishImmutableSteps(
+        snapshot.manifest.root_sha256,
+        decodedGraph,
+      ),
     );
     expect(resealed).toEqual(semantic);
     expect(isValidatedImmutableJavaScriptSemanticGraph(resealed)).toBe(true);
