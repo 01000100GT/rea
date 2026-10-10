@@ -7,6 +7,7 @@ import { projectAnalysisError } from "../../../src/domain/analysisErrorProjectio
 import { evmInterfaceSchema } from "../../../src/domain/evm/evmInterface.js";
 import { EvmoleInterfaceProvider } from "../../../src/evm/EvmoleInterfaceProvider.js";
 import { spawnOwnedProviderProcess } from "../../../src/process/ProviderProcess.js";
+import { cleanupOwnedProcessGroup } from "../../../src/process/ProcessOwnership.js";
 import { waitForProviderProcessReady } from "../../fixtures/providerProcess.js";
 import { PrivateRuntimeRoot } from "../../../src/process/PrivateRuntimeRoot.js";
 import {
@@ -128,6 +129,7 @@ it.runIf(!unsupportedHost)(
   async () => {
     const { path } = await fixture();
     let ownedPath = "";
+    let failCleanupReport = true;
     const provider = new EvmoleInterfaceProvider({}, async (spawn) => {
       ownedPath = spawn.cwd ?? "";
       const launched = await spawnOwnedProviderProcess({
@@ -135,24 +137,48 @@ it.runIf(!unsupportedHost)(
         command: process.execPath,
         arguments: ["-e", 'process.stdout.write("x".repeat(1048577))'],
       });
+      const ownership = launched.ownership;
+      if (ownership === undefined)
+        throw new Error("Owned launcher must expose process identity");
+      const cleanup =
+        launched.cleanup ?? (() => cleanupOwnedProcessGroup(ownership));
       return {
         ...launched,
         cleanup: async () => {
-          await launched.cleanup?.();
-          throw new Error("injected post-cleanup reporting failure");
+          const result = await cleanup();
+          if (failCleanupReport)
+            throw new Error("injected post-cleanup reporting failure");
+          return result;
         },
       };
     });
+    onTestFinished(async () => {
+      failCleanupReport = false;
+      await provider.close();
+    });
     const result = await provider.inspect({ path, encoding: "hex" });
     if (result.ok) throw new Error("Expected compounded lifecycle failure");
-    expect(result.error).toMatchObject({
-      cleanupIncomplete: true,
-      diagnostics: {
-        reason: "injected post-cleanup reporting failure",
-        previous_error: { failure_kind: "output-limit" },
-        captured_output: { truncated: true, stderr: "" },
+    expect(projectAnalysisError(result.error)).toMatchObject({
+      code: "cleanup_incomplete",
+      details: {
+        diagnostics: {
+          reason: "Owned EVM worker cleanup could not be confirmed",
+          previous_error: {
+            code: "cleanup_incomplete",
+            details: {
+              diagnostics: {
+                reason: "injected post-cleanup reporting failure",
+                previous_error: { failure_kind: "output-limit" },
+                captured_output: { truncated: true, stderr: "" },
+              },
+            },
+          },
+        },
       },
     });
+    await access(ownedPath);
+    failCleanupReport = false;
+    await provider.close();
     await expect(access(ownedPath)).rejects.toMatchObject({ code: "ENOENT" });
   },
 );
