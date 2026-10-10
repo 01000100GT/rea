@@ -30,6 +30,7 @@ import {
   type JavaScriptModuleSemanticIr,
 } from "../../../src/domain/javascript/javascriptModuleSemanticIr.js";
 import type { JavaScriptStaticAnalysis } from "../../../src/domain/javascript/javascriptStaticAnalysisTypes.js";
+import type { JavaScriptArtifactFile } from "../../../src/domain/javascript/javascriptArtifactFiles.js";
 import { completeJavaScriptAnalysisSteps } from "../../../src/application/javascript/JavaScriptAnalysisControl.js";
 import {
   writeJavaScriptAnalysisTransfer,
@@ -63,7 +64,10 @@ it("reports file progress and honors cancellation before the next source", async
         }
       },
     }),
-  ).rejects.toMatchObject({ reason: "cancelled" });
+  ).rejects.toMatchObject({
+    _tag: "AnalysisCancelledError",
+    partialObservation: { operation: "analyze_javascript_application" },
+  });
   expect(progress).toHaveLength(2);
   expect(progress[0]).not.toBe(progress[1]);
 });
@@ -156,40 +160,12 @@ it("preserves graph commitments and export shapes when consuming file-local IR",
       decodedModules.set(analyzed.file.path, decoded.module);
       transferred.adoptFileProjection(decoded.projection);
       if (!rejectedInvalidTransfer) {
-        await expect(
-          readJavaScriptAnalysisTransfer(wirePath, descriptor, {
-            ...analyzed.file,
-            sha256: "0".repeat(64),
-          }),
-        ).rejects.toThrow("different artifact source");
-        await expect(
-          readJavaScriptAnalysisTransfer(
-            wirePath,
-            { ...descriptor, sha256: "0".repeat(64) },
-            analyzed.file,
-          ),
-        ).rejects.toThrow("digest does not match");
-        const wire = await readFile(wirePath, "utf8");
-        const duplicate = wire
-          .split("\n")
-          .find((line) => line.startsWith('{"kind":"node"'));
-        expect(duplicate).toBeDefined();
-        if (duplicate === undefined)
-          throw new Error("Fixture emitted no semantic node record");
-        const invalid = `${wire}${duplicate}\n`;
-        const invalidPath = join(wireRoot, "duplicate.jsonl");
-        await writeFile(invalidPath, invalid);
-        await expect(
-          readJavaScriptAnalysisTransfer(
-            invalidPath,
-            {
-              bytes: Buffer.byteLength(invalid),
-              records: descriptor.records + 1,
-              sha256: createHash("sha256").update(invalid).digest("hex"),
-            },
-            analyzed.file,
-          ),
-        ).rejects.toThrow("Duplicate JavaScript transfer node identity");
+        await rejectInvalidTransfer(
+          wirePath,
+          descriptor,
+          analyzed.file,
+          wireRoot,
+        );
         rejectedInvalidTransfer = true;
       }
     }
@@ -218,6 +194,50 @@ it("preserves graph commitments and export shapes when consuming file-local IR",
     await reader.close();
   }
 });
+
+const rejectInvalidTransfer = async (
+  wirePath: string,
+  descriptor: Awaited<ReturnType<typeof writeJavaScriptAnalysisTransfer>>,
+  file: JavaScriptArtifactFile,
+  wireRoot: string,
+): Promise<void> => {
+  await expect(
+    readJavaScriptAnalysisTransfer(wirePath, descriptor, {
+      ...file,
+      sha256: "0".repeat(64),
+    }),
+  ).rejects.toThrow("different artifact source");
+  await expect(
+    readJavaScriptAnalysisTransfer(
+      wirePath,
+      { ...descriptor, sha256: "0".repeat(64) },
+      file,
+    ),
+  ).rejects.toThrow("digest does not match");
+  const wire = await readFile(wirePath, "utf8");
+  const duplicate = wire
+    .split("\n")
+    .find((line) => line.startsWith('{"kind":"node"'));
+  if (duplicate === undefined)
+    throw new Error("Fixture emitted no semantic node record");
+  const invalid = `${wire}${duplicate}\n`;
+  const invalidPath = join(wireRoot, "duplicate.jsonl");
+  await writeFile(invalidPath, invalid);
+  await expect(
+    readJavaScriptAnalysisTransfer(
+      invalidPath,
+      {
+        ...descriptor,
+        bytes: Buffer.byteLength(invalid),
+        records: descriptor.records + 1,
+        graph_bytes: descriptor.graph_bytes + Buffer.byteLength(duplicate) + 1,
+        graph_records: descriptor.graph_records + 1,
+        sha256: createHash("sha256").update(invalid).digest("hex"),
+      },
+      file,
+    ),
+  ).rejects.toThrow("Duplicate JavaScript transfer node identity");
+};
 
 it("reports semantic value resource limits in application graph coverage", async () => {
   const root = await createTestTempDirectory("rea-javascript-semantic-limit-");

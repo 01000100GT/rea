@@ -6,6 +6,7 @@ import type {
 import type { JavaScriptSemanticIr } from "../../domain/javascript/javascriptSemanticIr.js";
 import type { JavaScriptModuleSemanticIr } from "../../domain/javascript/javascriptModuleSemanticIr.js";
 import type { JavaScriptArtifactFile } from "../../domain/javascript/javascriptArtifactFiles.js";
+import type { JsonValue } from "../../domain/jsonValue.js";
 
 interface JavaScriptStructuredObservation {
   readonly path: string;
@@ -101,6 +102,18 @@ export interface AnalyzedJavaScriptArtifactFile<
   readonly semantic: {
     readonly ir: SemanticIr;
   } | null;
+  /** Operational incompleteness, distinct from a malformed source file. */
+  readonly analysis_failure?: {
+    readonly reason: string;
+    readonly error: JsonValue;
+    readonly limits: Readonly<Record<string, JsonValue>> | null;
+  };
+  /** Facts retained inline when their expanded graph exceeds available memory. */
+  readonly application_projection_failure?: {
+    readonly reason: string;
+    readonly error: JsonValue;
+    readonly limits: Readonly<Record<string, JsonValue>> | null;
+  };
 }
 
 /** Complete static-analysis projection before graph construction. */

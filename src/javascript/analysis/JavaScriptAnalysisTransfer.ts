@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { open, stat } from "node:fs/promises";
 import { z } from "zod";
+import { AnalysisResourceConstraintError } from "../../domain/analysisErrorCore.js";
 
 import type { JavaScriptArtifactFile } from "../../domain/javascript/javascriptArtifactFiles.js";
 import type { JavaScriptModuleSemanticIr } from "../../domain/javascript/javascriptModuleSemanticIr.js";
@@ -15,7 +16,9 @@ import {
 } from "./JavaScriptAnalysisWorkerSchemas.js";
 
 // Budgets bound transfer representation, independently of source length.
-const FRAME_BYTES = 2 * 1024 * 1024;
+/** Record bound whose transient decoding expansion is reserved by the consumer. */
+export const JAVASCRIPT_ANALYSIS_TRANSFER_RECORD_BYTES = 8 * 1024 * 1024;
+const FRAME_BYTES = JAVASCRIPT_ANALYSIS_TRANSFER_RECORD_BYTES;
 const TRANSFER_BYTES = 512 * 1024 * 1024;
 const BATCH_BYTES = 1024 * 1024;
 const recordSchema = z.discriminatedUnion("kind", [
@@ -36,8 +39,69 @@ export const javaScriptAnalysisTransferDescriptorSchema = z.strictObject({
   bytes: z.number().int().nonnegative().max(TRANSFER_BYTES),
   sha256: digestSchema,
   records: z.number().int().nonnegative(),
+  module_bytes: z.number().int().nonnegative(),
+  module_records: z.number().int().nonnegative(),
+  graph_bytes: z.number().int().nonnegative(),
+  graph_records: z.number().int().nonnegative(),
 });
 type Descriptor = z.output<typeof javaScriptAnalysisTransferDescriptorSchema>;
+
+/** Conservative retained-object and sealing expansion for validated transfer rows. */
+export const javaScriptTransferRetentionBytes = (
+  bytes: number,
+  records: number,
+): number => bytes * 8 + records * 64;
+
+const encodeTransferRecord = (input: unknown, previousBytes: number) => {
+  const record = recordSchema.parse(input);
+  const line = `${JSON.stringify(record)}\n`;
+  const size = Buffer.byteLength(line);
+  if (size > FRAME_BYTES || previousBytes + size > TRANSFER_BYTES)
+    throw new AnalysisResourceConstraintError(
+      "analyze_javascript_application",
+      "transport",
+      size > FRAME_BYTES
+        ? "A complete JavaScript fact exceeds the transfer record byte budget"
+        : "Complete JavaScript file facts exceed the transfer byte budget",
+      {
+        transfer_record_bytes: FRAME_BYTES,
+        transfer_file_bytes: TRANSFER_BYTES,
+        record_bytes: size,
+        transfer_bytes_at_least: previousBytes + size,
+      },
+    );
+  return { line, size, kind: record.kind };
+};
+
+function* moduleTransferRecords(
+  module: JavaScriptModuleSemanticIr,
+): Generator<unknown> {
+  yield {
+    kind: "module-header",
+    value: { coverage: module.coverage, limitations: module.limitations },
+  };
+  for (const value of module.scopes) yield { kind: "scope", value };
+  for (const value of module.bindings) yield { kind: "binding", value };
+  for (const value of module.callables) yield { kind: "callable", value };
+  for (const value of module.moduleLinks) yield { kind: "module-link", value };
+}
+
+/** Measure actual validated module rows before allocating an unadmittable graph. */
+export const measureJavaScriptModuleTransfer = (
+  module: JavaScriptModuleSemanticIr,
+) => {
+  let bytes = 0;
+  let records = 0;
+  for (const record of moduleTransferRecords(module)) {
+    bytes += encodeTransferRecord(record, bytes).size;
+    records += 1;
+  }
+  return {
+    bytes,
+    records,
+    retentionBytes: javaScriptTransferRetentionBytes(bytes, records),
+  };
+};
 
 /** Encode validated facts in bounded records, without serializing a whole graph or IR. */
 export const writeJavaScriptAnalysisTransfer = async (
@@ -49,6 +113,10 @@ export const writeJavaScriptAnalysisTransfer = async (
   const digest = createHash("sha256");
   let bytes = 0;
   let records = 0;
+  let moduleBytes = 0;
+  let moduleRecords = 0;
+  let graphBytes = 0;
+  let graphRecords = 0;
   let batch: string[] = [];
   let batchBytes = 0;
   const flush = async (): Promise<void> => {
@@ -61,15 +129,20 @@ export const writeJavaScriptAnalysisTransfer = async (
     batchBytes = 0;
   };
   const append = async (input: unknown): Promise<void> => {
-    const record = recordSchema.parse(input);
-    const line = `${JSON.stringify(record)}\n`;
-    const size = Buffer.byteLength(line);
-    if (size > FRAME_BYTES || bytes + size > TRANSFER_BYTES)
-      throw new RangeError(
-        "JavaScript analysis transfer exceeds its record or file byte budget",
-      );
+    const { line, size, kind } = encodeTransferRecord(input, bytes);
     bytes += size;
     records += 1;
+    if (
+      ["module-header", "scope", "binding", "callable", "module-link"].includes(
+        kind,
+      )
+    ) {
+      moduleBytes += size;
+      moduleRecords += 1;
+    } else {
+      graphBytes += size;
+      graphRecords += 1;
+    }
     batch.push(line);
     batchBytes += size;
     if (batchBytes >= BATCH_BYTES) await flush();
@@ -79,17 +152,7 @@ export const writeJavaScriptAnalysisTransfer = async (
       kind: "projection-header",
       value: { roots: projection.roots, truncated: projection.truncated },
     });
-    await append({
-      kind: "module-header",
-      value: { coverage: module.coverage, limitations: module.limitations },
-    });
-    for (const value of module.scopes) await append({ kind: "scope", value });
-    for (const value of module.bindings)
-      await append({ kind: "binding", value });
-    for (const value of module.callables)
-      await append({ kind: "callable", value });
-    for (const value of module.moduleLinks)
-      await append({ kind: "module-link", value });
+    for (const record of moduleTransferRecords(module)) await append(record);
     for (const value of projection.evidenceContexts)
       await append({ kind: "evidence-context", value });
     for (const value of projection.nodes) await append({ kind: "node", value });
@@ -100,14 +163,22 @@ export const writeJavaScriptAnalysisTransfer = async (
     for (const value of projection.fingerprints)
       await append({ kind: "fingerprint", value });
     await flush();
-    return { bytes, sha256: digest.digest("hex"), records };
+    return {
+      bytes,
+      sha256: digest.digest("hex"),
+      records,
+      module_bytes: moduleBytes,
+      module_records: moduleRecords,
+      graph_bytes: graphBytes,
+      graph_records: graphRecords,
+    };
   } finally {
     await output.close();
   }
 };
 
 /** Decode producer records into realm-local, source-bound facts; sealing follows in the consumer. */
-export const readJavaScriptAnalysisTransfer = async (
+export function readJavaScriptAnalysisTransfer(
   path: string,
   descriptor: Descriptor,
   source: Pick<JavaScriptArtifactFile, "path" | "sha256">,
@@ -115,7 +186,28 @@ export const readJavaScriptAnalysisTransfer = async (
 ): Promise<{
   readonly module: JavaScriptModuleSemanticIr;
   readonly projection: JavaScriptSemanticFileProjection;
-}> => {
+}>;
+/** Validate the transfer while retaining only module facts when graph admission fails. */
+export function readJavaScriptAnalysisTransfer(
+  path: string,
+  descriptor: Descriptor,
+  source: Pick<JavaScriptArtifactFile, "path" | "sha256">,
+  signal: AbortSignal | undefined,
+  retainGraph: boolean,
+): Promise<{
+  readonly module: JavaScriptModuleSemanticIr;
+  readonly projection: JavaScriptSemanticFileProjection | null;
+}>;
+export async function readJavaScriptAnalysisTransfer(
+  path: string,
+  descriptor: Descriptor,
+  source: Pick<JavaScriptArtifactFile, "path" | "sha256">,
+  signal?: AbortSignal,
+  retainGraph = true,
+): Promise<{
+  readonly module: JavaScriptModuleSemanticIr;
+  readonly projection: JavaScriptSemanticFileProjection | null;
+}> {
   const expected = javaScriptAnalysisTransferDescriptorSchema.parse(descriptor);
   if ((await stat(path)).size !== expected.bytes)
     throw new TypeError(
@@ -152,6 +244,10 @@ export const readJavaScriptAnalysisTransfer = async (
     seen.add(identifier);
   };
   let records = 0;
+  let moduleBytes = 0;
+  let moduleRecords = 0;
+  let graphBytes = 0;
+  let graphRecords = 0;
   const digest = createHash("sha256");
   const stream = createReadStream(path, {
     highWaterMark: 64 * 1024,
@@ -180,6 +276,21 @@ export const readJavaScriptAnalysisTransfer = async (
           );
         const input: unknown = JSON.parse(line);
         const record = recordSchema.parse(input);
+        if (
+          [
+            "module-header",
+            "scope",
+            "binding",
+            "callable",
+            "module-link",
+          ].includes(record.kind)
+        ) {
+          moduleBytes += Buffer.byteLength(line) + 1;
+          moduleRecords += 1;
+        } else {
+          graphBytes += Buffer.byteLength(line) + 1;
+          graphRecords += 1;
+        }
         if (record.kind === "projection-header") {
           if (records !== 0 || projectionHeader !== undefined)
             throw new TypeError(
@@ -195,6 +306,27 @@ export const readJavaScriptAnalysisTransfer = async (
             throw new TypeError(
               "JavaScript transfer facts precede their headers",
             );
+          if (
+            !retainGraph &&
+            [
+              "evidence-context",
+              "node",
+              "relation",
+              "unknown",
+              "fingerprint",
+            ].includes(record.kind)
+          ) {
+            if (
+              record.kind === "node" &&
+              (record.value.identity.artifact_sha256 !== source.sha256 ||
+                record.value.identity.module_path !== source.path)
+            )
+              throw new TypeError(
+                "JavaScript transfer node belongs to a different artifact source",
+              );
+            records += 1;
+            continue;
+          }
           switch (record.kind) {
             case "scope":
               retainIdentity(record.kind, record.value.scopeId);
@@ -255,6 +387,10 @@ export const readJavaScriptAnalysisTransfer = async (
     pending !== "" ||
     records !== expected.records ||
     bytes !== expected.bytes ||
+    moduleBytes !== expected.module_bytes ||
+    moduleRecords !== expected.module_records ||
+    graphBytes !== expected.graph_bytes ||
+    graphRecords !== expected.graph_records ||
     digest.digest("hex") !== expected.sha256
   )
     throw new TypeError(
@@ -264,13 +400,15 @@ export const readJavaScriptAnalysisTransfer = async (
     throw new TypeError("JavaScript analysis transfer is missing its headers");
   return {
     module: { ...moduleHeader, scopes, bindings, callables, moduleLinks },
-    projection: {
-      ...projectionHeader,
-      evidenceContexts,
-      nodes,
-      relations,
-      unknowns,
-      fingerprints,
-    },
+    projection: retainGraph
+      ? {
+          ...projectionHeader,
+          evidenceContexts,
+          nodes,
+          relations,
+          unknowns,
+          fingerprints,
+        }
+      : null,
   };
-};
+}
