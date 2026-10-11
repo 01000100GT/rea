@@ -8,6 +8,13 @@ export const javascriptRecoveryInputSchema = z.strictObject({
   path: localPathStringSchema.describe(
     "Absolute path to a UTF-8 JavaScript file; never executed",
   ),
+  additional_paths: z
+    .array(localPathStringSchema)
+    .max(16)
+    .optional()
+    .describe(
+      "Additional absolute UTF-8 JavaScript files concatenated into the same recovery snapshot, in order, after path; lets a code-split bundle be recovered as one input so modules can resolve imports across chunks",
+    ),
   output_directory: localPathStringSchema.describe(
     "Absolute absent output directory; parent must exist",
   ),

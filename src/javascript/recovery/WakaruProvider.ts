@@ -22,7 +22,7 @@ import {
   checkRecoveryDeadline,
   recoveryFailureMessage,
   recoveryInputFailure,
-  snapshotRecoveryInput,
+  snapshotRecoveryInputs,
 } from "./RecoveryFiles.js";
 import {
   resolveWakaruCommand,
@@ -109,8 +109,8 @@ export class WakaruProvider implements JavaScriptRecoveryPort {
       const staging = join(root, "modules");
       await mkdir(inputs, { mode: 0o700 });
       await mkdir(staging, { mode: 0o700 });
-      const source = await snapshotRecoveryInput(
-        input.path,
+      const source = await snapshotRecoveryInputs(
+        [input.path, ...(input.additional_paths ?? [])],
         join(inputs, "bundle.js"),
         options?.signal,
       );

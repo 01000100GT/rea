@@ -44,17 +44,37 @@ export class JavaScriptRecoveryService {
     const invalidPaths = (["path", "output_directory"] as const).filter(
       (field) => !isAbsolute(parsed.data[field]),
     );
-    if (invalidPaths.length > 0)
+    const invalidAdditional = (parsed.data.additional_paths ?? []).filter(
+      (additional) => !isAbsolute(additional),
+    );
+    if (invalidPaths.length > 0 || invalidAdditional.length > 0)
       return err(
-        new AnalysisInputError(
-          OPERATION,
-          undefined,
-          invalidPaths.map((field) => ({
+        new AnalysisInputError(OPERATION, undefined, [
+          ...invalidPaths.map((field) => ({
             path: [field],
-            reason: "invalid_format",
+            reason: "invalid_format" as const,
             message: `${field} must be an absolute filesystem path on this host.`,
           })),
-        ),
+          ...invalidAdditional.map((additional) => ({
+            path: ["additional_paths"],
+            reason: "invalid_format" as const,
+            message: `additional_paths entries must be absolute filesystem paths on this host: ${additional}`,
+          })),
+        ]),
+      );
+    const selectedInputs = new Set([
+      parsed.data.path,
+      ...(parsed.data.additional_paths ?? []),
+    ]);
+    if (selectedInputs.size !== 1 + (parsed.data.additional_paths ?? []).length)
+      return err(
+        new AnalysisInputError(OPERATION, undefined, [
+          {
+            path: ["additional_paths"],
+            reason: "invalid_format",
+            message: "additional_paths must not repeat path or each other.",
+          },
+        ]),
       );
     const execution = await this.provider.recover(parsed.data, options);
     if (!execution.ok) return execution;

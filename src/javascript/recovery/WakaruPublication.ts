@@ -33,6 +33,12 @@ type PublicationContext = {
     snapshot_path: string;
     sha256: string;
     bytes: number;
+    segments: readonly {
+      path: string;
+      sha256: string;
+      bytes: number;
+      offset: number;
+    }[];
   };
   engine: Awaited<ReturnType<typeof resolveWakaruCommand>>;
   admitted: Exclude<WakaruVersionAdmission, { status: "unsupported" }>;
@@ -134,6 +140,11 @@ export const publishWakaruArtifacts = async (
     runtime_equivalence: "unknown" as const,
     limitations: [
       ...RECOVERY_LIMITATIONS,
+      ...(context.source.segments.length > 1
+        ? [
+            "Multiple inputs were concatenated into one recovery snapshot in the listed order; module provenance byte offsets refer to that concatenated snapshot.",
+          ]
+        : []),
       ...(context.admitted.status === "compatible"
         ? [context.admitted.limitation]
         : []),
@@ -182,6 +193,7 @@ const publishModule = async (
       "recover_javascript_sources",
       `Missing module provenance: ${module.filename}`,
     );
+  const origin = originatingSegment(context.source.segments, provenance.ranges);
   return {
     reported_filename: module.filename,
     reported_status: module.status,
@@ -189,12 +201,56 @@ const publishModule = async (
     source_map: sourceMap,
     provenance: {
       reported_input: provenance.input,
-      original_path: source.path,
-      original_sha256: source.sha256,
+      original_path: origin.path,
+      original_sha256: origin.sha256,
       extraction: provenance.extraction,
-      byte_ranges: recoveryRanges(provenance.ranges),
-      context_byte_ranges: recoveryRanges(provenance.context_ranges ?? []),
+      byte_ranges: recoveryRanges(rangesRelativeTo(origin, provenance.ranges)),
+      context_byte_ranges: recoveryRanges(
+        rangesRelativeTo(origin, provenance.context_ranges ?? []),
+      ),
       range_semantics: "half-open-utf8-bytes",
     },
   };
 };
+
+/**
+ * Attribute a module to the input segment its first extraction range starts
+ * in, rebasing its ranges to that file's own offsets. A module whose ranges
+ * cross a segment boundary cannot be attributed to one input file; it then
+ * keeps the concatenated-snapshot identity and offsets (recorded as a
+ * limitation when multiple inputs were recovered).
+ */
+export const originatingSegment = (
+  segments: PublicationContext["source"]["segments"],
+  ranges: readonly [number, number][],
+): { path: string; sha256: string; offset: number; attributable: boolean } => {
+  const primary = segments[0];
+  if (primary === undefined)
+    return { path: "", sha256: "", offset: 0, attributable: false };
+  const start = ranges[0]?.[0];
+  if (start === undefined) return { ...primary, attributable: false };
+  let owner = primary;
+  for (const segment of segments) {
+    if (start >= segment.offset) owner = segment;
+  }
+  const attributable = ranges.every(
+    ([rangeStart, rangeEnd]) =>
+      rangeStart >= owner.offset && rangeEnd <= owner.offset + owner.bytes,
+  );
+  return attributable
+    ? { ...owner, attributable }
+    : { ...primary, attributable: false };
+};
+
+const rangesRelativeTo = (
+  origin: {
+    path: string;
+    sha256: string;
+    offset: number;
+    attributable: boolean;
+  },
+  ranges: readonly [number, number][],
+): [number, number][] =>
+  origin.attributable
+    ? ranges.map(([start, end]) => [start - origin.offset, end - origin.offset])
+    : [...ranges];

@@ -121,6 +121,62 @@ export const snapshotRecoveryInput = async (
   };
 };
 
+/** Snapshot several caller-selected UTF-8 scripts as one concatenated engine input. */
+export const snapshotRecoveryInputs = async (
+  paths: readonly string[],
+  snapshotPath: string,
+  signal?: AbortSignal,
+): Promise<
+  Awaited<ReturnType<typeof snapshotRecoveryInput>> & {
+    segments: readonly {
+      path: string;
+      sha256: string;
+      bytes: number;
+      offset: number;
+    }[];
+  }
+> => {
+  const segments: {
+    path: string;
+    sha256: string;
+    bytes: number;
+    offset: number;
+  }[] = [];
+  const parts: Buffer[] = [];
+  let offset = 0;
+  for (const path of paths) {
+    let bytes: Buffer;
+    try {
+      bytes = await readRecoveryFile(path, RECOVERY_LIMITS.inputBytes, signal);
+      new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    } catch (cause: unknown) {
+      if (cause instanceof AnalysisCancelledError) throw cause;
+      throw recoveryInputFailure(
+        "path",
+        `Cannot snapshot UTF-8 JavaScript input ${path}: ${recoveryFailureMessage(cause)}`,
+        cause,
+      );
+    }
+    segments.push({
+      path,
+      sha256: recoveryDigest(bytes),
+      bytes: bytes.length,
+      offset,
+    });
+    parts.push(bytes);
+    offset += bytes.length;
+  }
+  const combined = Buffer.concat(parts, offset);
+  await writeFile(snapshotPath, combined, { flag: "wx", mode: 0o600 });
+  return {
+    path: paths[0] as string,
+    snapshot_path: snapshotPath,
+    sha256: recoveryDigest(combined),
+    bytes: combined.length,
+    segments,
+  };
+};
+
 /** Inventory staging without following symlinks or publishing special files. */
 export const inventoryRecoveryFiles = async (
   root: string,

@@ -15,7 +15,7 @@ import {
   inventoryRecoveryFiles,
   readRecoveryFile,
   recoveryDigest,
-  type snapshotRecoveryInput,
+  type snapshotRecoveryInputs,
 } from "./RecoveryFiles.js";
 import {
   runWakaruCommand,
@@ -38,7 +38,7 @@ type RecoveryWorkspace = {
   root: string;
   tree: SafeOutputTree;
   input: JavaScriptRecoveryInput;
-  source: Awaited<ReturnType<typeof snapshotRecoveryInput>>;
+  source: Awaited<ReturnType<typeof snapshotRecoveryInputs>>;
   engine: Awaited<ReturnType<typeof resolveWakaruCommand>>;
   environment: Readonly<Record<string, string | undefined>>;
   launcher: WakaruLauncher | undefined;
@@ -126,10 +126,16 @@ export const prepareWakaruExecution = async (context: RecoveryWorkspace) => {
   });
   if (
     recoveryDigest(
-      await readRecoveryFile(
-        input.path,
-        RECOVERY_LIMITS.inputBytes,
-        options?.signal,
+      Buffer.concat(
+        await Promise.all(
+          source.segments.map(async (segment) =>
+            readRecoveryFile(
+              segment.path,
+              RECOVERY_LIMITS.inputBytes,
+              options?.signal,
+            ),
+          ),
+        ),
       ),
     ) !== source.sha256
   )
