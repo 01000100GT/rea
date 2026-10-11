@@ -212,6 +212,7 @@ export const createSemanticModuleInterop = (
     const argumentGroups: t.CallExpression["arguments"][] = [];
     const bindReads: t.Node[] = [];
     let opaqueArguments = false;
+    let receiver: t.Node | undefined;
     let current = node;
     for (;;) {
       current = unwrapJavaScriptExpression(current).node;
@@ -243,11 +244,9 @@ export const createSemanticModuleInterop = (
       // intervening members would require a separate proof of their identity.
       if (!terminal && members.length !== 1) return undefined;
       bindReads.push(captured?.capturedAt ?? current.callee);
-      const thisArgument = current.arguments[0];
+      receiver = current.arguments[0];
       const ownArguments = current.arguments.slice(1);
-      opaqueArguments ||=
-        thisArgument !== undefined &&
-        !readExactJavaScriptLiteral(thisArgument).found;
+      opaqueArguments ||= t.isSpreadElement(receiver);
       opaqueArguments ||= ownArguments.some((argument) =>
         t.isSpreadElement(argument),
       );
@@ -271,6 +270,7 @@ export const createSemanticModuleInterop = (
       });
       return {
         path,
+        ...(receiver === undefined ? {} : { receiver }),
         // Rebinding appends arguments to the earlier bound argument list.
         arguments: opaqueArguments
           ? undefined
@@ -549,12 +549,7 @@ export const createSemanticModuleInterop = (
     callOrigin,
     intrinsicPath,
     intrinsicInvocation: (node: t.CallExpression | t.OptionalCallExpression) =>
-      resolveJavaScriptIntrinsicInvocation(
-        node,
-        state,
-        intrinsicPath,
-        boundIntrinsic,
-      ),
+      resolveJavaScriptIntrinsicInvocation(node, intrinsicPath, boundIntrinsic),
     boundIntrinsic,
     staticString,
     isFreshObject,

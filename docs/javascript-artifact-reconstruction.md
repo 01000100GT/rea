@@ -344,7 +344,8 @@ reassignments, dynamic selections, and visibly overwritten namespace members
 are unresolved.
 Known Object/Reflect mutators remain recognizable through literal destructuring
 of intrinsic objects and stable bound-function aliases. Calls retain bound
-argument prefixes through `call`, `apply`, and `Reflect.apply`; unexamined
+argument prefixes and the original bound receiver through `call`, `apply`, and
+`Reflect.apply`, including generic `Function.prototype` invocation; unexamined
 targets remain unresolved. Creating an unused binding does not itself mutate
 an intrinsic. Variable redeclarations retain a single unconditional initializer
 when they introduce no assignment or second initializer.

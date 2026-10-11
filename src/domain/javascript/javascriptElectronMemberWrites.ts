@@ -43,6 +43,8 @@ export const electronMemberPath = (
 
 /** A known intrinsic callable and its examined positional arguments. */
 export interface JavaScriptIntrinsicInvocation {
+  /** The original bound receiver; rebinding cannot replace it. */
+  readonly receiver?: t.Node;
   readonly path: readonly string[];
   readonly arguments:
     | readonly t.CallExpression["arguments"][number][]
