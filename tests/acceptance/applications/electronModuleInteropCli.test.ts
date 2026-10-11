@@ -50,6 +50,8 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       Object.defineProperty(localClass,"x",{value:1});
       const localRegExp = /local/;
       Object.defineProperty(localRegExp,"x",{value:1});
+      Object.defineProperty(hoistedFunction,"x",{value:1});
+      function hoistedFunction() {}
       const captured = Object.defineProperty;
       Object.defineProperty = custom;
       ${ROLLDOWN_MODULE_INTEROP.replace("__defProp = Object.defineProperty", "__defProp = captured")}

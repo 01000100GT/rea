@@ -187,7 +187,8 @@ export const createSemanticModuleInterop = (
       if (
         binding === undefined ||
         initializer === undefined ||
-        (initializer.end ?? Infinity) >= (current.start ?? -1) ||
+        (!t.isFunctionDeclaration(initializer) &&
+          (initializer.end ?? Infinity) >= (current.start ?? -1)) ||
         visited.has(binding.bindingId)
       )
         return false;

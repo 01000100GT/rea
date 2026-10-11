@@ -263,7 +263,7 @@ describe("Electron module interop pattern writes", () => {
   });
 });
 
-describe("Electron module interop capture and scope", () => {
+describe("Electron module interop intrinsic captures", () => {
   it.each([
     "var captured = Object.defineProperty;",
     "const {defineProperty:captured} = Object;",
@@ -304,6 +304,34 @@ describe("Electron module interop capture and scope", () => {
       var captured = Object.defineProperty;
       ${runtime} ${IMPORT} ${WRAP} ${WINDOW}
       var __defProp = captured;
+    `);
+    expect(analysis.electron.browser_windows).toEqual([]);
+  });
+});
+
+describe("Electron module interop capture and scope", () => {
+  it.each(["metadata", "alias"])(
+    "recognizes a hoisted function target through %s",
+    (target) => {
+      const analysis = analyzeJavaScriptStaticSource(`
+        const alias = metadata;
+        Object.defineProperty(${target}, "x", {value:1});
+        function metadata() {}
+        ${ROLLDOWN_MODULE_INTEROP} ${IMPORT} ${WRAP} ${WINDOW}
+      `);
+      expect(analysis.electron.browser_windows).toHaveLength(1);
+    },
+  );
+
+  it.each([
+    "var metadata = function () {};",
+    "const metadata = () => {};",
+    "class metadata {}",
+  ])("does not hoist fresh targets from %s", (declaration) => {
+    const analysis = analyzeJavaScriptStaticSource(`
+      Object.defineProperty(metadata, "x", {value:1});
+      ${declaration}
+      ${ROLLDOWN_MODULE_INTEROP} ${IMPORT} ${WRAP} ${WINDOW}
     `);
     expect(analysis.electron.browser_windows).toEqual([]);
   });
