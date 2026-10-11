@@ -6,7 +6,6 @@ import {
   unwrapJavaScriptExpression,
 } from "./javascriptAstValues.js";
 import { traverseJavaScriptAstSteps } from "./javascriptSemanticTraversal.js";
-import { stringValue } from "./javascriptStaticAnalysisHelpers.js";
 
 /** Match Electron's supported module entry points. */
 export const ELECTRON_MODULE =
@@ -60,6 +59,7 @@ export function* collectJavaScriptIdentityWritesSteps(
   intrinsicInvocation: (
     node: t.CallExpression | t.OptionalCallExpression,
   ) => JavaScriptIntrinsicInvocation | undefined,
+  staticString: (node: t.Node | undefined) => string | undefined,
   freshObject: (node: t.Node) => boolean,
   retain: (node: t.Node, path: readonly (string | null)[]) => void,
 ): Generator<void> {
@@ -100,7 +100,7 @@ export function* collectJavaScriptIdentityWritesSteps(
             const exported = origin(root, "member");
             if (exported !== undefined) {
               const key = keyedMutators.has(method ?? "")
-                ? [stringValue(arguments_?.[1]) ?? null]
+                ? [staticString(arguments_?.[1]) ?? null]
                 : [];
               retain(node, [...exported, ...members, ...key]);
             } else if (!freshObject(target)) {

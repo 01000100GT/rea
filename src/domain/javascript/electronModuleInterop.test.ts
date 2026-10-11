@@ -73,8 +73,36 @@ describe("Electron module interop identity", () => {
   });
 });
 
+const BOUND_INTRINSIC_MUTATIONS: [string, string][] = [
+  [
+    "intrinsic changed through aliased prebound arguments",
+    `const objectAlias = Object; const key = "create"; const define = Object.defineProperty; const mutate = define.bind(null, objectAlias, key); mutate({value:customCreate}); ${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP}`,
+  ],
+  [
+    "intrinsic changed through nested prebinding",
+    `const first = Object.defineProperty.bind(null, Object); const second = first.bind(null, "create"); second({value:customCreate}); ${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP}`,
+  ],
+  [
+    "a replaced bound mutator bind method is unknown",
+    `const first = Object.defineProperty.bind(null, Object); first.bind = customBind; const second = first.bind(null, "create"); second({value:customCreate}); ${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP}`,
+  ],
+  [
+    "intrinsic changed through a computed prebound call",
+    `const mutate = Object.defineProperty.bind(null, Object, "create"); mutate["call"](null, {value:customCreate}); ${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP}`,
+  ],
+  [
+    "intrinsic changed through a computed prebound apply",
+    `const mutate = Object.defineProperty.bind(null, Object, "create"); mutate["apply"](null, [{value:customCreate}]); ${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP}`,
+  ],
+  [
+    "a replaced bind intrinsic makes a prebound mutator unknown",
+    `Function.prototype.bind = customBind; const mutate = Object.defineProperty.bind(null, Object, "create"); mutate({value:customCreate}); ${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP}`,
+  ],
+];
+
 describe("Electron module interop uncertainty", () => {
   it.each([
+    ...BOUND_INTRINSIC_MUTATIONS,
     [
       "intrinsic changed through an unresolved mutator target",
       `Object.defineProperty(getTarget(), "create", {value:customCreate}); ${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP}`,
@@ -546,4 +574,15 @@ describe("Electron module interop bound mutators", () => {
       ).electron.browser_windows,
     ).toHaveLength(1);
   });
+});
+
+it("keeps unrelated exports after an aliased prebound key write", () => {
+  const analysis = analyzeJavaScriptStaticSource(`
+      const electron = require("electron");
+      const key = "Unrelated";
+      const mutate = Object.defineProperty.bind(null, electron, key);
+      mutate({value: custom});
+      new electron.BrowserWindow({});
+    `);
+  expect(analysis.electron.browser_windows).toHaveLength(1);
 });

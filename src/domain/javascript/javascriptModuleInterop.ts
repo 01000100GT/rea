@@ -15,7 +15,10 @@ import {
   childNodes,
   javaScriptAstChildKeys,
 } from "./javascriptSemanticTraversal.js";
-import { electronMemberPath } from "./javascriptElectronMemberWrites.js";
+import {
+  electronMemberPath,
+  type JavaScriptIntrinsicInvocation,
+} from "./javascriptElectronMemberWrites.js";
 import { resolveJavaScriptIntrinsicInvocation } from "./javascriptIntrinsicInvocation.js";
 import { SemanticPropertyPathCoverage } from "./javascriptSemanticPropertyPaths.js";
 import {
@@ -170,6 +173,109 @@ export const createSemanticModuleInterop = (
       if (suffixLength === 0) capturedAt = initializer.node;
       suffixLength += initializer.projection.length;
       current = initializer.node;
+    }
+  };
+
+  const staticString = (node: t.Node | undefined): string | undefined => {
+    if (node === undefined) return undefined;
+    const visited = new Set<string>();
+    let current = node;
+    for (;;) {
+      const literal = readExactJavaScriptLiteral(current);
+      if (literal.found)
+        return typeof literal.value === "string" ? literal.value : undefined;
+      const expression = unwrapJavaScriptExpression(current).node;
+      if (!t.isIdentifier(expression)) return undefined;
+      const binding = resolveSemanticBindingState(
+        state,
+        expression,
+        expression.name,
+      );
+      const initializer = semanticStableInitializer(binding, state);
+      if (
+        binding === undefined ||
+        initializer === undefined ||
+        initializer.projection.length !== 0 ||
+        (initializer.node.end ?? Infinity) >= (expression.start ?? -1) ||
+        visited.has(binding.bindingId)
+      )
+        return undefined;
+      visited.add(binding.bindingId);
+      current = initializer.node;
+    }
+  };
+
+  const boundIntrinsic = (
+    node: t.Node,
+  ): JavaScriptIntrinsicInvocation | undefined => {
+    const visited = new Set<string>();
+    const argumentGroups: t.CallExpression["arguments"][] = [];
+    const bindReads: t.Node[] = [];
+    let opaqueArguments = false;
+    let current = node;
+    for (;;) {
+      current = unwrapJavaScriptExpression(current).node;
+      if (t.isIdentifier(current)) {
+        const binding = resolveSemanticBindingState(
+          state,
+          current,
+          current.name,
+        );
+        const initializer = semanticStableInitializer(binding, state);
+        if (
+          binding === undefined ||
+          initializer === undefined ||
+          initializer.projection.length !== 0 ||
+          (initializer.node.end ?? Infinity) >= (current.start ?? -1) ||
+          visited.has(binding.bindingId)
+        )
+          return undefined;
+        visited.add(binding.bindingId);
+        current = initializer.node;
+        continue;
+      }
+      if (!t.isCallExpression(current)) return undefined;
+      const { root: bindTarget, members } = electronMemberPath(current.callee);
+      if (members.at(-1) !== "bind") return undefined;
+      const captured = capturedIntrinsic(current.callee);
+      const terminal = captured?.path.at(-1) === "bind";
+      // Only a direct .bind can continue a previously bound callable. Keeping
+      // intervening members would require a separate proof of their identity.
+      if (!terminal && members.length !== 1) return undefined;
+      bindReads.push(captured?.capturedAt ?? current.callee);
+      const thisArgument = current.arguments[0];
+      const ownArguments = current.arguments.slice(1);
+      opaqueArguments ||=
+        thisArgument !== undefined &&
+        !readExactJavaScriptLiteral(thisArgument).found;
+      opaqueArguments ||= ownArguments.some((argument) =>
+        t.isSpreadElement(argument),
+      );
+      argumentGroups.push(ownArguments);
+      if (!terminal || captured === undefined) {
+        current = bindTarget;
+        continue;
+      }
+      const path = captured.path.slice(0, -1);
+      const boundPath = [...path, "bind"];
+      const functionBind = ["intrinsic", "Function", "prototype", "bind"];
+      opaqueArguments ||= bindReads.some((capture) => {
+        const scope = opaqueMutationPath(capture).join(".");
+        return writes.some(
+          (write) =>
+            (write.scope === scope || write.scope === "intrinsic") &&
+            write.offset < (capture.start ?? -1) &&
+            (write.coverage.covers(boundPath) ||
+              write.coverage.covers(functionBind)),
+        );
+      });
+      return {
+        path,
+        // Rebinding appends arguments to the earlier bound argument list.
+        arguments: opaqueArguments
+          ? undefined
+          : argumentGroups.toReversed().flat(),
+      };
     }
   };
 
@@ -443,7 +549,14 @@ export const createSemanticModuleInterop = (
     callOrigin,
     intrinsicPath,
     intrinsicInvocation: (node: t.CallExpression | t.OptionalCallExpression) =>
-      resolveJavaScriptIntrinsicInvocation(node, state, intrinsicPath),
+      resolveJavaScriptIntrinsicInvocation(
+        node,
+        state,
+        intrinsicPath,
+        boundIntrinsic,
+      ),
+    boundIntrinsic,
+    staticString,
     isFreshObject,
     opaqueMutationPath,
     retainWrite: (node: t.Node, path: readonly (string | null)[]) => {

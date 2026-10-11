@@ -407,10 +407,14 @@ export function* classifyParsedJavaScriptElectronBindingsSteps(
       if (kind === "opaque-call") return interop.opaqueMutationPath(root);
       const exported = kind === "binding" ? undefined : rootExport(root);
       return exported === undefined
-        ? interop.intrinsicPath(root)
+        ? (interop.intrinsicPath(root) ??
+            (kind === "member"
+              ? interop.boundIntrinsic(root)?.path
+              : undefined))
         : ["electron", ...exported];
     },
     interop.intrinsicInvocation,
+    interop.staticString,
     interop.isFreshObject,
     (node, path) => {
       if (path[0] === "electron") writes.retain(path);

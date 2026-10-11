@@ -37,6 +37,7 @@ export const resolveJavaScriptIntrinsicInvocation = (
   node: t.CallExpression | t.OptionalCallExpression,
   state: JavaScriptSemanticAnalysisState,
   intrinsicPath: (node: t.Node) => readonly string[] | undefined,
+  boundIntrinsic: (node: t.Node) => JavaScriptIntrinsicInvocation | undefined,
 ): JavaScriptIntrinsicInvocation | undefined => {
   const visited = new Set<string>();
   let callee: t.Node = node.callee;
@@ -70,23 +71,15 @@ export const resolveJavaScriptIntrinsicInvocation = (
         continue;
       }
     }
-    if (t.isCallExpression(callee) || t.isOptionalCallExpression(callee)) {
-      const binder: t.Node = unwrapJavaScriptExpression(callee.callee).node;
-      if (
-        (!t.isMemberExpression(binder) &&
-          !t.isOptionalMemberExpression(binder)) ||
-        semanticStaticPropertyKey(binder.property, binder.computed) !== "bind"
-      )
-        return undefined;
-      const prefix = callee.arguments.slice(1);
-      arguments_ = t.isSpreadElement(callee.arguments[0])
-        ? undefined
-        : prefix.length === 0
-          ? arguments_
-          : [...prefix, ...(arguments_ ?? [])];
-      callee = binder.object;
-      continue;
-    }
+    const bound = boundIntrinsic(callee);
+    if (bound !== undefined)
+      return {
+        path: bound.path,
+        arguments:
+          bound.arguments === undefined
+            ? undefined
+            : [...bound.arguments, ...(arguments_ ?? [])],
+      };
     if (!t.isIdentifier(callee)) return undefined;
     const binding = resolveSemanticBindingState(state, callee, callee.name);
     const initializer = semanticStableInitializer(binding, state);
