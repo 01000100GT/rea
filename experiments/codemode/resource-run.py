@@ -26,11 +26,12 @@ def main():
     if available_bytes() < 8 * gib:
         raise SystemExit('Refusing experiment: less than 8 GiB available')
     unit = 'rea-codemode-' + uuid.uuid4().hex + '.scope'
+    cpu = max(os.sched_getaffinity(0))
     command = [
         'systemd-run', '--user', '--scope', '--unit=' + unit,
         '-p', 'MemoryMax=4G', '-p', 'MemoryHigh=2G', '-p', 'MemorySwapMax=0',
         '-p', 'CPUQuota=100%', '-p', 'TasksMax=96',
-        'taskset', '-c', str(min(os.sched_getaffinity(0))), *args,
+        'taskset', '-c', str(cpu), *args,
     ]
     process = subprocess.Popen(command)
     peak = 0
@@ -70,6 +71,7 @@ def main():
             'elapsed_seconds': round(time.monotonic() - started, 3),
             'abort': abort, 'hard_memory_bytes': 4 * gib,
             'early_stop_bytes': 3 * gib, 'cpu_quota_percent': 100,
+            'cpu_affinity': [cpu],
         }), file=sys.stderr)
     raise SystemExit(125 if abort else code)
 

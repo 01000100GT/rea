@@ -1,0 +1,172 @@
+import assert from "node:assert/strict";
+import { after, before, test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { Client } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import { CodeModeBridge, connectUpstream, json } from "./bridge.mjs";
+
+const entrypoint = fileURLToPath(
+  new URL("../../scripts/rea.mjs", import.meta.url),
+);
+const fixture = fileURLToPath(
+  new URL("../../tests/conformance/readiness/javascript-cli", import.meta.url),
+);
+const analysisArgs = {
+  input_path: fixture,
+  detail: "summary",
+  max_heap_mb: 128,
+};
+let upstream;
+let bridge;
+before(async () => {
+  upstream = await connectUpstream({
+    command: process.execPath,
+    args: [entrypoint, "mcp"],
+    env: { ...process.env, REA_LOG_LEVEL: "silent" },
+  });
+  bridge = new CodeModeBridge(upstream);
+});
+after(async () => {
+  await upstream?.close();
+});
+
+test("discovery preserves exact current REA schemas and names", async () => {
+  const result = await bridge.search({ names: ["binary_session"] });
+  assert.equal(result.total_tools, upstream.catalog.length);
+  const original = upstream.catalog.find(
+    (tool) => tool.name === "binary_session",
+  );
+  const { typescript, ...discovered } = result.tools[0];
+  assert.deepEqual(discovered, original);
+  assert.match(typescript, /export interface BinarySession_Input/);
+  const all = await bridge.search({ schemas: false });
+  assert.deepEqual(
+    all.tools.map((tool) => tool.name),
+    upstream.catalog.map((tool) => tool.name),
+  );
+});
+
+test("raw original result and parsed result survive a real MCP call", async () => {
+  const result = await bridge.execute({
+    code: "const r = await tools.binary_session({}); return {raw:r, parsed:json(r)};",
+  });
+  assert.equal(result.bridge_error, undefined);
+  assert.deepEqual(json(result.value.raw), result.value.parsed);
+  assert.equal(result.calls[0].name, "binary_session");
+  assert.match(result.calls[0].result_sha256, /^[a-f0-9]{64}$/);
+  assert.equal(result.calls[0].is_error, false);
+});
+
+test("Promise.all calls settle in order without losing pending work", async () => {
+  const result = await bridge.execute({
+    code: "return await Promise.all([tools.binary_session({}), tools.binary_session({}), tools.binary_session({})]);",
+  });
+  assert.equal(result.bridge_error, undefined);
+  assert.equal(result.value.length, 3);
+  assert.equal(result.calls.length, 3);
+  assert.ok(result.calls.every((call) => call.result_sha256));
+});
+
+test("upstream invalid-input result remains an original MCP error envelope", async () => {
+  const args = {
+    input_path: "/nonexistent/rea-codemode-artifact",
+    detail: "summary",
+  };
+  const direct = await upstream.call("analyze_javascript_application", args);
+  const result = await bridge.execute({
+    code: `return await tools.analyze_javascript_application(${JSON.stringify(args)});`,
+  });
+  assert.equal(result.bridge_error, undefined);
+  assert.equal(result.value.isError, true);
+  assert.deepEqual(json(result.value).error, json(direct).error);
+  assert.equal(result.calls[0].is_error, true);
+});
+
+test("guest has no Node, filesystem, fetch or module-loading capabilities", async () => {
+  const result = await bridge.execute({
+    code: "return [typeof process,typeof require,typeof fetch,typeof Deno,Function('return typeof process')()];",
+  });
+  assert.deepEqual(result.value, Array(5).fill("undefined"));
+  const imported = await bridge.execute({
+    code: "return await import('node:fs');",
+  });
+  assert.ok(imported.bridge_error);
+});
+
+test("CPU deadline interrupts runaway code and the next execution works", async () => {
+  const result = await bridge.execute({
+    code: "while(true) {}",
+    timeout_ms: 20,
+  });
+  assert.ok(result.bridge_error);
+  assert.deepEqual(result.calls, []);
+  assert.equal((await bridge.execute({ code: "return 42;" })).value, 42);
+});
+
+test("error after successful call preserves original Evidence reference", async () => {
+  const result = await bridge.execute({
+    code: `await tools.analyze_javascript_application(${JSON.stringify(analysisArgs)}); throw new Error('after-call');`,
+  });
+  assert.match(result.bridge_error.message, /after-call/);
+  assert.ok(result.calls[0].evidence_id);
+  const readback = await upstream.call("get_evidence_bundle", {
+    detail: "summary",
+  });
+  assert.equal(readback.isError, undefined);
+  assert.ok(
+    JSON.stringify(json(readback)).includes(result.calls[0].evidence_id),
+  );
+});
+
+test("a guest promise without any producer fails without hanging", async () => {
+  const result = await bridge.execute({
+    code: "return await new Promise(() => {});",
+  });
+  assert.match(result.bridge_error.message, /cannot progress/);
+});
+
+test("bridge's two tools are usable through actual downstream stdio MCP", async () => {
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [
+      fileURLToPath(new URL("./bridge.mjs", import.meta.url)),
+      process.execPath,
+      entrypoint,
+      "mcp",
+    ],
+    env: { ...process.env, REA_LOG_LEVEL: "silent" },
+    stderr: "inherit",
+  });
+  const client = new Client({ name: "codemode-boundary-test", version: "1" });
+  try {
+    await client.connect(transport);
+    const catalog = await client.listTools();
+    assert.deepEqual(
+      catalog.tools.map((tool) => tool.name),
+      ["rea_search", "rea_execute"],
+    );
+    const found = json(
+      await client.callTool({
+        name: "rea_search",
+        arguments: { names: ["binary_session"] },
+      }),
+    );
+    assert.equal(found.matched_tools, 1);
+    const result = json(
+      await client.callTool({
+        name: "rea_execute",
+        arguments: {
+          code: "return json(await tools.binary_session({}));",
+        },
+      }),
+    );
+    assert.equal(result.value.result.open, false);
+    const invalid = await client.callTool({
+      name: "rea_execute",
+      arguments: { code: 7 },
+    });
+    assert.equal(invalid.isError, true);
+  } finally {
+    await client.close();
+  }
+});
