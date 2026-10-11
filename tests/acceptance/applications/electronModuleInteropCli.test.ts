@@ -36,6 +36,7 @@ const INTRINSIC_MUTATIONS = [
     "bound.cjs",
     'const change = Object.defineProperty.bind(null,Object,"create"); change({value:customCreate});',
   ],
+  ["receiver.cjs", 'Reflect.set({},"create",customCreate,Object);'],
 ] as const;
 
 const writePoisonedModules = async (root: string): Promise<void> => {
@@ -109,6 +110,7 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       require("./uncurried.cjs");
       require("./generic-bind.cjs");
       require("./replaced-apply.cjs");
+      require("./receiver.cjs");
       throw new Error("must not execute main");
     `;
     await writeFile(join(root, "main.cjs"), source);
@@ -135,7 +137,7 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       preload_entrypoints: 1,
     });
     expect(result.statistics.parse_failures).toBe(0);
-    expect(result.statistics.parsed_javascript_files).toBe(9);
+    expect(result.statistics.parsed_javascript_files).toBe(10);
     const windows = result.graph.nodes.filter(
       ({ kind }) => kind === "browser-window",
     );
