@@ -1,0 +1,23 @@
+{
+  "name": "rea-codemode-experiment",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.18.0"
+  },
+  "packageManager": "npm@11.16.0",
+  "scripts": {
+    "test": "node --test bridge.test.mjs",
+    "start": "node bridge.mjs",
+    "bench": "node benchmark.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.3.1",
+    "@modelcontextprotocol/server": "2.3.1",
+    "js-tiktoken": "1.0.21",
+    "json-schema-to-typescript": "16.0.0",
+    "quickjs-emscripten": "0.32.0",
+    "zod": "4.3.6"
+  }
+}
