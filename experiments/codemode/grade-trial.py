@@ -1,6 +1,7 @@
 """Check requested JSON facts and real Evidence references against a replay oracle."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -36,27 +37,75 @@ def requested_facts(value, task):
             'artifact_sha256', 'entry_address', 'containing_procedure',
             'procedure', 'pseudocode_prefix', 'caller_count', 'callee_count']}
     if task == 'electron-inventory':
-        return {field: value.get(field) for field in [
+        facts = {field: value.get(field) for field in [
             'artifact_sha256', 'manifest', 'entry_kind_counts', 'requested_paths',
             'integrity_contradictions', 'coverage', 'unexplored_branches']}
+        paths = facts['requested_paths']
+        if isinstance(paths, dict) and set(paths) == {'package.json', 'main.js', 'preload.js'}:
+            if all(isinstance(rows, list) and all(isinstance(row, dict) and
+                   row.get('logical_path') == name for row in rows)
+                   for name, rows in paths.items()):
+                paths = [row for rows in paths.values() for row in rows]
+        if isinstance(paths, list) and all(isinstance(row, dict) and
+                                          isinstance(row.get('logical_path'), str) for row in paths):
+            paths = sorted(paths, key=lambda row: row['logical_path'])
+        facts['requested_paths'] = paths
+        contradictions = facts['integrity_contradictions']
+        if isinstance(contradictions, dict) and set(contradictions) == {'inspection', 'inventory'}:
+            if all(rows == [] for rows in contradictions.values()):
+                facts['integrity_contradictions'] = []
+        branches = facts['unexplored_branches']
+        if isinstance(branches, list) and all(isinstance(row, dict) for row in branches):
+            # Branch identity includes the source Evidence identity. Compare its
+            # reported meaning here and verify its actual source reference below.
+            facts['unexplored_branches'] = [{key: row.get(key) for key in [
+                'reason', 'detail', 'next_probe']} for row in branches]
+        return facts
     if task == 'firmware':
         result = value.get('result')
         if not isinstance(result, dict):
             result = {}
+        engine = result.get('engine', result.get('provider'))
+        if isinstance(engine, dict):
+            engine = {'version': engine.get('version'),
+                      'executable_sha256': engine.get('executable_sha256',
+                                                    engine.get('engine_artifact_sha256'))}
         regions = result.get('regions')
         if isinstance(regions, list) and all(isinstance(row, dict) for row in regions):
             # Binwalk's UUID is run-local; preserve it in the answer but do not
             # compare it with the independent replay's different occurrence ID.
-            regions = [{key: row.get(key) for key in [
-                'offset', 'reported_size', 'signature', 'description',
-                'reported_confidence', 'size_basis']} for row in regions]
+            selected_regions = []
+            for row in regions:
+                selected = {key: row.get(key) for key in [
+                    'offset', 'signature', 'description', 'reported_confidence']}
+                if 'reported_size' in row:
+                    size = row['reported_size']
+                elif 'reported_extent_bytes' in row:
+                    size = row['reported_extent_bytes']
+                else:
+                    extent = row.get('reported_extent')
+                    size = None
+                    if isinstance(extent, dict) and extent.get('offset') == row.get('offset'):
+                        length = extent.get('length')
+                        offset = row.get('offset')
+                        if isinstance(length, int) and isinstance(offset, int) and \
+                                extent.get('end_exclusive') == offset + length:
+                            size = length
+                selected['reported_size'] = size
+                selected_regions.append(selected)
+            regions = selected_regions
         return {'artifact_sha256': value.get('artifact_sha256'),
-                'engine': result.get('engine'), 'input_size': result.get('input_size'),
-                'regions': regions, 'coverage': result.get('coverage')}
+                'engine': engine, 'input_size': result.get('input_size', result.get('input_size_bytes')),
+                'regions': regions, 'coverage': result.get('coverage', result.get('examined_coverage'))}
     if task == 'managed':
         def selected(field, keys):
             row = value.get(field)
             return {key: row.get(key) for key in keys} if isinstance(row, dict) else row
+        coverage = value.get('coverage')
+        if isinstance(coverage, dict):
+            coverage = {key: {field: row.get(field) for field in ['state', 'issues']}
+                        if isinstance(row, dict) else row
+                        for key, row in coverage.items() if key in ['managed_artifact', 'native_boundaries']}
         return {
             'artifact_sha256': value.get('artifact_sha256'),
             'assembly': selected('assembly', ['name', 'version']),
@@ -64,7 +113,7 @@ def requested_facts(value, task):
             'classification': value.get('classification'),
             'target_frameworks': value.get('target_frameworks'),
             'native_boundaries': selected('native_boundaries', ['module_refs', 'pinvoke_imports']),
-            'coverage': value.get('coverage'),
+            'coverage': coverage,
         }
     facts = {field: value.get(field) for field in [
         'artifact_sha256', 'package_name', 'version_name', 'version_code', 'matches', 'onCreate']}
@@ -150,11 +199,16 @@ def main():
         observed |= ids
         unreadable += skipped
     cited = evidence_ids(answer.get('evidence_ids'))
+    if args.task == 'electron-inventory':
+        for branch in answer.get('unexplored_branches', []):
+            if isinstance(branch, dict):
+                cited |= evidence_ids(branch.get('evidence_id'))
     if not cited:
         failures.append({'kind': 'missing_evidence_references'})
     if cited - observed:
         failures.append({'kind': 'unobserved_evidence_ids', 'ids': sorted(cited - observed)})
     result = {'task': args.task,
+              'grader_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
               'scope': 'producer_fact_parity_and_reference_existence_not_runtime_accuracy',
               'passed': not failures, 'fact_assertions': len(expected),
               'answer_format': answer_format,

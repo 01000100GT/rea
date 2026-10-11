@@ -137,6 +137,13 @@ signature with that field omitted fails this stronger assertion.
 Firmware's run-local region UUIDs remain in answers but are excluded from parity
 against an independently acquired report. Classification evidence, explicit
 unknowns and coverage remain part of the requested fact checks.
+The question comparison accepts grouped original path records, extra known
+coverage counts and explicitly named firmware length/coverage report fields.
+Derived extent ends must agree with offset plus reported length. It verifies
+engine version and executable digest rather than display capitalization; a manual
+review is still needed for limitations and claims beyond these assertions.
+Grades record the grader source digest, and earlier strict grades are retained
+when the comparison changes. These are report parsers, not REA API aliases.
 
 The supplied feedback is a research lead. Its Ghidra timing claim also changed
 auto-analysis options, so it does not isolate Code Mode's effect. Relevant primary

@@ -252,3 +252,46 @@ sampled peak of 1399996416 bytes and zero observed limit events. Declarations ar
 cached per exact tool name for this immutable live-catalog connection; repeated
 discovery does not regenerate them. No provider implementation or published
 REA API has changed.
+
+## Typed-discovery serial agent checkpoint
+
+All rows below use real Codex CLI 0.161.0, Terra high, the same rendered question
+within each pair, and the same provider settings. The bridge/runtime/runner source
+fingerprints match commit `22326e819`; model-written original arguments can differ.
+Comparisons include required mode-specific instructions and are not a controlled
+causal decomposition of inference, caching and provider time.
+
+| Case               | Profile | Wall seconds |  Input | Cached | Uncached | Output | MCP calls | Fact/reference check              |
+| ------------------ | ------- | -----------: | -----: | -----: | -------: | -----: | --------: | --------------------------------- |
+| android            | direct  |       67.329 | 107007 |  83712 |    23295 |   1670 |         3 | pass                              |
+| android            | bridge  |       48.231 | 113256 |  91648 |    21608 |   1456 |         3 | pass                              |
+| managed            | bridge  |       73.145 | 116974 |  92672 |    24302 |   2065 |         3 | classification field omitted      |
+| managed            | direct  |        33.15 | 108096 |  75776 |    32320 |   2315 |         2 | facts match; reference unverified |
+| electron-inventory | direct  |       89.494 | 266121 | 238848 |    27273 |   3215 |         3 | pass                              |
+| electron-inventory | bridge  |      145.577 | 462809 | 407040 |    55769 |   5624 |         8 | pass                              |
+| firmware           | bridge  |       81.944 | 152886 | 126976 |    25910 |   2192 |         3 | pass                              |
+| firmware           | direct  |       30.161 | 103224 |  74752 |    28472 |   1761 |         1 | pass                              |
+
+The managed bridge omits the producer classification container field (`pe`) while
+preserving status/runtime/implementation/architecture and all classification
+evidence. Its strict complete-classification assertion fails; this is an omission,
+not an incorrect architecture claim. Normal MCP matches requested facts but its
+large-result JSONL truncation again prevents automated verification of one ID.
+
+The initial grader treated grouped path records, extra known coverage counts and
+an empty per-source contradiction object as mismatches. Task-specific comparison
+now accepts those lossless report forms. Firmware compares observed offset/length
+facts, checks any supplied derived end arithmetically, and verifies engine version
+and executable digest. Run-local UUIDs and differently named display fields are
+not compared as if they were stable source identity. Original strict grades and
+pre-equivalence grades remain outside Git, and new grades include a grader digest.
+These report-format comparisons do not add aliases to any REA tool contract.
+
+Obsidian bridge discovery takes six searches and two executions. The first returns
+the entire nested inventory; the second repeats it and computes a focused answer.
+The live nested Evidence schema describes normalized_result as generic JSON, so
+derived types alone cannot teach its concrete manifest/occurrences layout. Its
+recursive record walk happens to match this corpus, but format-specific field
+selection is the stronger recipe. Both model profiles choose record-and-continue
+for integrity; deterministic inventory replays used fail. No contradictions were
+observed, and the exact caller-selected arguments are retained.
