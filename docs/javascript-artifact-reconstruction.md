@@ -349,7 +349,8 @@ argument prefixes and the original bound receiver through `call`, `apply`, and
 creation. Visibly replaced invocation intrinsics produce unknown effects instead
 of using their former call semantics; captured function aliases retain their
 earlier identity. Unexamined
-targets remain unresolved. Creating an unused binding does not itself mutate
+targets remain unresolved. `Reflect.set` examines its explicit receiver as well
+as its target, retaining unknown receiver effects. Creating an unused binding does not itself mutate
 an intrinsic. Variable redeclarations retain a single unconditional initializer
 when they introduce no assignment or second initializer.
 Stable identifier chains to fresh object, array, function,

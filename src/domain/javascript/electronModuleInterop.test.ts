@@ -560,6 +560,14 @@ describe("Electron module interop bound mutators", () => {
     'Reflect.apply = Object.defineProperty; Reflect.apply(Object,"create",{value:customCreate});',
     'const apply = Reflect.apply; Reflect.apply = Object.defineProperty; Reflect.apply(Object,"create",{value:customCreate});',
     'const change = Reflect.set.bind(null,Object,"create"); change(customCreate);',
+    'Reflect.set({},"create",customCreate,Object);',
+    'const metadata = {}; Reflect.set(metadata,"create",customCreate,Object);',
+    'const change = Reflect.set.bind(null,{},"create",customCreate); change(Object);',
+    'Reflect.apply(Reflect.set,null,[{},"create",customCreate,Object]);',
+    'Reflect.set({},"create",customCreate,...receivers);',
+    'Reflect.set({},"create",...valuesAndReceivers);',
+    "Reflect.set({},...keysValuesAndReceivers);",
+    'Reflect.set({},"create",customCreate,receiver);',
     'const change = Object.defineProperty.call; change(null,Object,"create",{value:customCreate});',
     'const {apply:change} = Object.defineProperty; change(null,[Object,"create",{value:customCreate}]);',
     'const change = Reflect.apply.call; change(null,Object.defineProperty,null,[Object,"create",{value:customCreate}]);',
@@ -587,6 +595,8 @@ describe("Electron module interop bound mutators", () => {
     'Object.defineProperty.apply(null,[metadata,"x",{value:1}]);',
     'const change = Object.defineProperty.call; change(null,metadata,"x",{value:1});',
     'const {apply:change} = Object.defineProperty; change(null,[metadata,"x",{value:1}]);',
+    'Reflect.set(metadata,"x",1,{});',
+    'const receiver = {}; Reflect.set({},"x",1,receiver);',
   ])("keeps a fresh bound target or unused binding separate: %s", (write) => {
     expect(
       analyzeJavaScriptStaticSource(

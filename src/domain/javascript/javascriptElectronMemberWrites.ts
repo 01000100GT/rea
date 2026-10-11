@@ -96,24 +96,39 @@ export function* collectJavaScriptIdentityWritesSteps(
           (owner === "Object" && objectMutators.has(method ?? "")) ||
           (owner === "Reflect" && reflectMutators.has(method ?? ""))
         ) {
-          const target = arguments_?.[0];
-          // A known mutator with an opaque argument list can overwrite any
-          // captured intrinsic. Do not turn an unexamined target into proof.
-          if (target === undefined || t.isSpreadElement(target)) {
-            const scope = origin(node, "opaque-call");
-            if (scope !== undefined) retain(node, scope);
-          }
-          if (t.isNode(target) && !t.isSpreadElement(target)) {
-            const { root, members } = electronMemberPath(target);
-            const exported = origin(root, "member");
-            if (exported !== undefined) {
-              const key = keyedMutators.has(method ?? "")
-                ? [staticString(arguments_?.[1]) ?? null]
-                : [];
-              retain(node, [...exported, ...members, ...key]);
-            } else if (!freshObject(target)) {
+          // Reflect.set can write through its explicit receiver as well as
+          // dispatching through its target. Both identities need examination.
+          const targets =
+            owner === "Reflect" &&
+            method === "set" &&
+            arguments_ !== undefined &&
+            (arguments_.length >= 4 || arguments_.some(t.isSpreadElement))
+              ? [
+                  arguments_[0],
+                  arguments_.some(t.isSpreadElement)
+                    ? undefined
+                    : arguments_[3],
+                ]
+              : [arguments_?.[0]];
+          for (const target of targets) {
+            // A known mutator with an opaque argument list can overwrite any
+            // captured intrinsic. Do not turn an unexamined target into proof.
+            if (target === undefined || t.isSpreadElement(target)) {
               const scope = origin(node, "opaque-call");
               if (scope !== undefined) retain(node, scope);
+            }
+            if (t.isNode(target) && !t.isSpreadElement(target)) {
+              const { root, members } = electronMemberPath(target);
+              const exported = origin(root, "member");
+              if (exported !== undefined) {
+                const key = keyedMutators.has(method ?? "")
+                  ? [staticString(arguments_?.[1]) ?? null]
+                  : [];
+                retain(node, [...exported, ...members, ...key]);
+              } else if (!freshObject(target)) {
+                const scope = origin(node, "opaque-call");
+                if (scope !== undefined) retain(node, scope);
+              }
             }
           }
         }
