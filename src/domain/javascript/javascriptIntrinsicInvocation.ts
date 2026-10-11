@@ -40,6 +40,12 @@ export const resolveJavaScriptIntrinsicInvocation = (
   let receiver: t.Node | undefined;
   for (;;) {
     callee = unwrapJavaScriptExpression(callee).node;
+    if (t.isSequenceExpression(callee)) {
+      const finalExpression = callee.expressions.at(-1);
+      if (finalExpression === undefined) return undefined;
+      callee = finalExpression;
+      continue;
+    }
     if (visited.has(callee)) return undefined;
     visited.add(callee);
     let path = intrinsicPath(callee);

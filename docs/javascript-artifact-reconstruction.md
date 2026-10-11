@@ -348,7 +348,10 @@ argument prefixes and the original bound receiver through `call`, `apply`, and
 `Reflect.apply`, including generic `Function.prototype` invocation and binding
 creation. Visibly replaced invocation intrinsics produce unknown effects instead
 of using their former call semantics; captured function aliases retain their
-earlier identity. Unexamined
+earlier identity. Invocation member reads are checked separately from the earlier function capture.
+Comma-expression callees use their final value while all preceding expressions
+remain in the effect traversal. Call effects are classified after callee and
+argument effects have been collected. Unexamined
 targets remain unresolved. `Reflect.set` examines its explicit receiver as well
 as its target, retaining unknown receiver effects. Creating an unused binding does not itself mutate
 an intrinsic. Variable redeclarations retain a single unconditional initializer

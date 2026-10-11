@@ -37,6 +37,10 @@ const INTRINSIC_MUTATIONS = [
     'const change = Object.defineProperty.bind(null,Object,"create"); change({value:customCreate});',
   ],
   ["receiver.cjs", 'Reflect.set({},"create",customCreate,Object);'],
+  [
+    "sequence.cjs",
+    '(0,Object.defineProperty)(Object,"create",{value:customCreate});',
+  ],
 ] as const;
 
 cliTest.for(["CLI", "stdio MCP"] as const)(
@@ -75,6 +79,7 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       function hoistedFunction() {}
       const captured = Object.defineProperty;
       Object.defineProperty = custom;
+      captured.call(null,metadata,"captured",{value:1});
       ${ROLLDOWN_MODULE_INTEROP.replace("__defProp = Object.defineProperty", "__defProp = captured")}
       let electron = require("electron");
       electron = __toESM(electron, 1);
@@ -105,6 +110,7 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       require("./generic-bind.cjs");
       require("./replaced-apply.cjs");
       require("./receiver.cjs");
+      require("./sequence.cjs");
       throw new Error("must not execute main");
     `;
     await writeFile(join(root, "main.cjs"), source);
@@ -131,7 +137,7 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       preload_entrypoints: 1,
     });
     expect(result.statistics.parse_failures).toBe(0);
-    expect(result.statistics.parsed_javascript_files).toBe(10);
+    expect(result.statistics.parsed_javascript_files).toBe(11);
     const windows = result.graph.nodes.filter(
       ({ kind }) => kind === "browser-window",
     );
