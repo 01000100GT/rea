@@ -78,7 +78,9 @@ jq's original trial failed because the stripped shipped executable has no
 `jq_compile` symbol. The corrected direct trial uses the observed ELF entry
 `0x403a50`, resolves it to Ghidra's `entry` function and analyzes that function.
 It succeeds with retained Evidence and a closed ephemeral provider session.
-Bridge parity for the corrected workflow is pending. This small entry function
+The corrected bridge returns identical selected facts and limitations. Its final
+result estimate is 1544 tokens versus 10189 for direct single-text results, plus
+1610 for discovery and 267 for code. This small entry function
 does not establish large-function or complete native-analysis coverage.
 
 OpenWrt's original direct trial returned `unreadable_output` without the expected
@@ -86,15 +88,22 @@ report. Twelve independent bounded Binwalk invocations produced reports. An
 observer launcher and a subsequent unchanged real Binwalk bridge trial succeeded,
 reporting uImage at offset 0 and SquashFS at 2741985 with `signature_scan` coverage.
 The observer is a diagnostic with a different launcher identity, not a benchmark
-baseline. The original failure remains unexplained; direct parity is pending.
+baseline. The original failure remains unexplained. Subsequent direct and bridge
+workflows agree on all region facts and coverage; random upstream region IDs vary
+and are preserved. Single-text estimates are 1387 tokens direct and 827 projected,
+so this one-operation task provides much less composition benefit than Android.
 
 SQLite's actual WASM fails the frozen REA WABT output parser with `Unrecognized
 WABT section row`. WABT 1.0.42 prints the nine-character DataCount label without
 leading padding; the owning parser currently requires leading whitespace. No
 downstream shim is used, and no successful WASM provider claim is made.
 Obsidian's initial real-model analysis ended without Evidence after Codex's host
-closed stdout; a standalone SDK replay is pending. Neither failure is a Code Mode
-speedup.
+closed stdout. Its standalone SDK replay returns a real provider timeout with a
+retained partial Evidence ID. This was observed before automatic partial-summary
+recovery was added, so the transcript retains that reference but does not export
+its payload. A source-fixture production-boundary test now verifies that provider
+timeout IDs survive auditing and resolve through the retained-evidence view.
+Neither failure is a Code Mode speedup.
 
 ## Real Android agents
 
@@ -140,5 +149,26 @@ Wall times above include contention on the same pinned CPU during exploratory
 work and differing prompts/instructions. They cannot support a controlled speed
 ratio. A reproducible efficiency conclusion requires successful equal-task trials
 and serial repetitions with the strongest existing-client baseline.
+
+The stronger client trial uses an explicit instruction to compose and project the
+existing operations, and passes all six checks: 72.341 seconds, 161370 input
+tokens (120576 cached), 1664 output tokens and three completed MCP calls. An
+equivalent question with the bridge passes in 115.962 seconds, 321295 input tokens
+(283648 cached), 2274 output tokens, five discovery calls and one execution. The
+native transcript does not expose executor source, so exact internal composition
+is unverified. Nevertheless, this measured client profile is a materially stronger
+baseline than the original repeated-call trial. Total input, uncached input,
+output and wall time must be considered separately; cached-token differences make
+total input an incomplete cost metric.
+
+This reverses the preliminary temptation to equate replay compression with the
+best Codex experience. Existing client support with explicit Evidence-aware
+recipes may be enough. An optional bridge needs to justify discovery overhead and
+remains useful to test for clients without equivalent execution support.
+
+Eleven actual SDK/stdio tests pass, including a controlled delivery delay after a
+real upstream result to exercise queued cancellation. Both the delayed call and
+its queued successor release deferred guest handles before runtime disposal.
+This test does not simulate or establish new provider behavior.
 
 The bridge remains an experiment and has not changed any published REA contract.

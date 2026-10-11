@@ -196,9 +196,9 @@ export class CodeModeBridge {
       const audit = { name, arguments_sha256: digest(args) };
       calls.push(audit);
       const work = toolQueue.then(async () => {
-        signal.throwIfAborted();
         const started = performance.now();
         try {
+          signal.throwIfAborted();
           const reply = await this.upstream.call(name, args, {
             signal,
             timeout: Math.max(1, deadline - Date.now()),
@@ -210,6 +210,9 @@ export class CodeModeBridge {
           try {
             const record = json(reply);
             if (record.evidence_id) audit.evidence_id = record.evidence_id;
+            const partial = record.error?.details?.partial_observation;
+            if (partial?.kind === "retained-evidence")
+              audit.partial_evidence_id = partial.evidence_id;
           } catch {
             /* Non-JSON MCP content is still preserved in reply. */
           }

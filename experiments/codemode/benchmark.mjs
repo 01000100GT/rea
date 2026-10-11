@@ -217,6 +217,7 @@ let discovery;
 let value;
 let failure;
 let bridgeReply;
+const recovery = [];
 const operationStarted = performance.now();
 try {
   if (values.mode !== "direct")
@@ -240,6 +241,39 @@ try {
 } catch (error) {
   failure = String(error);
 } finally {
+  const partials = new Set(
+    records.flatMap((record) => {
+      if (!record.reply?.isError) return [];
+      try {
+        const partial = json(record.reply).error?.details?.partial_observation;
+        return partial?.kind === "retained-evidence"
+          ? [partial.evidence_id]
+          : [];
+      } catch {
+        return []; // Preserve non-JSON failures in calls.json, without inventing IDs.
+      }
+    }),
+  );
+  for (const evidence_id of partials) {
+    // Capture already retained partial facts before disposing the replay session.
+    // Recovery is not a successful completion of the failed analyst workflow.
+    try {
+      const reply = await realCall(
+        "inspect_analysis_view",
+        {
+          source: { kind: "retained-evidence", evidence_id },
+          view: { kind: "summary" },
+        },
+        { timeout: 60_000 },
+      );
+      recovery.push({ parent_evidence_id: evidence_id, reply });
+    } catch (error) {
+      recovery.push({
+        parent_evidence_id: evidence_id,
+        failure: String(error),
+      });
+    }
+  }
   await upstream.close();
 }
 const catalogExposure = values.mode === "direct" ? upstream.catalog : discovery;
@@ -272,6 +306,7 @@ const summary = {
       : records.filter((x) => x.text_output).map((x) => x.text_output),
   projection: value,
   failure: failure ?? null,
+  partial_recovery: recovery,
   correctness: failure
     ? "failed_workflow"
     : "requires_cross_profile_fact_review",

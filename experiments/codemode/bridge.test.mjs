@@ -132,6 +132,58 @@ test("error after successful call preserves original Evidence reference", async 
   );
 });
 
+test("provider timeout retains its actual partial Evidence reference", async () => {
+  const result = await bridge.execute({
+    code: `const reply = await tools.analyze_javascript_application(${JSON.stringify({ ...analysisArgs, analysis_timeout_ms: 1 })}); return json(reply);`,
+  });
+  const partial = result.value.error.details.partial_observation;
+  assert.equal(partial.kind, "retained-evidence");
+  assert.equal(result.calls[0].is_error, true);
+  assert.equal(result.calls[0].partial_evidence_id, partial.evidence_id);
+  const view = json(
+    await upstream.call("inspect_analysis_view", {
+      source: partial,
+      view: { kind: "summary" },
+    }),
+  );
+  assert.equal(view.normalized_result.parent_evidence_id, partial.evidence_id);
+});
+
+test("cancelling queued calls releases deferred handles and permits reuse", async () => {
+  let callStarted;
+  const started = new Promise((resolve) => {
+    callStarted = resolve;
+  });
+  const cancelled = new AbortController();
+  const controlled = new CodeModeBridge({
+    catalog: upstream.catalog,
+    async call(name, args, options) {
+      const reply = await upstream.call(name, args, options);
+      callStarted();
+      // A controlled delivery delay after a real result makes the queued
+      // cancellation deterministic, without simulating provider behavior.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return reply;
+    },
+  });
+  const execution = controlled.execute(
+    {
+      code: "return await Promise.all([tools.binary_session({}), tools.binary_session({})]);",
+    },
+    { signal: cancelled.signal },
+  );
+  await started;
+  cancelled.abort(new Error("controlled queued cancellation"));
+  const result = await execution;
+  assert.ok(result.bridge_error);
+  assert.equal(result.calls.length, 2);
+  assert.match(
+    result.calls[1].transport_error,
+    /controlled queued cancellation/,
+  );
+  assert.equal((await controlled.execute({ code: "return 42;" })).value, 42);
+});
+
 test("a guest promise without any producer fails without hanging", async () => {
   const result = await bridge.execute({
     code: "return await new Promise(() => {});",

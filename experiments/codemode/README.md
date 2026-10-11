@@ -46,9 +46,10 @@ Calls and executions sharing one active target are serialized; `Promise.all`
 currently provides composition rather than parallel provider execution.
 
 `npm test` runs actual upstream and downstream stdio MCP against this checkout's
-compiled runtime. The standalone experiment's nine tests cover discovery parity,
+compiled runtime. The standalone experiment's eleven tests cover discovery parity,
 original results/errors, bulk promise settlement, host capability absence, CPU
-deadline recovery, retained Evidence after an error, unresolved promises and the
+deadline recovery, retained Evidence after an error or provider timeout,
+queued-call cancellation, unresolved promises and the
 two-tool downstream boundary. These tests do not establish real native/Android/
 firmware provider behavior. A lifecycle regression revealed that the QuickJS job
 pump can allocate an additional context: the execution scope now owns every
