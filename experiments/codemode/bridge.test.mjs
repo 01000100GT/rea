@@ -3,6 +3,7 @@ import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import Ajv2020 from "ajv/dist/2020.js";
 import { CodeModeBridge, connectUpstream, json } from "./bridge.mjs";
 
 const entrypoint = fileURLToPath(
@@ -131,6 +132,19 @@ test("CPU deadline interrupts runaway code and the next execution works", async 
   assert.equal((await bridge.execute({ code: "return 42;" })).value, 42);
 });
 
+test("guest allocation pressure fails within its heap budget and permits reuse", async () => {
+  const result = await bridge.execute({
+    code: "return new Array(1_000_000).fill('x');",
+    memory_bytes: 2 * 1024 * 1024,
+  });
+  assert.match(result.bridge_error.message, /memory/i);
+  assert.deepEqual(result.calls, []);
+  assert.equal((await bridge.execute({ code: "return 42;" })).value, 42);
+  assert.throws(() =>
+    bridge.execute({ code: "return 1;", timeout_ms: 2_147_483_648 }),
+  );
+});
+
 test("error after successful call preserves original Evidence reference", async () => {
   const result = await bridge.execute({
     code: `await tools.analyze_javascript_application(${JSON.stringify(analysisArgs)}); throw new Error('after-call');`,
@@ -235,6 +249,33 @@ test("bridge's two tools are usable through actual downstream stdio MCP", async 
       catalog.tools.map((tool) => tool.name),
       ["rea_search", "rea_execute"],
     );
+    const ajv = new Ajv2020({ strict: true });
+    const byName = new Map(catalog.tools.map((tool) => [tool.name, tool]));
+    for (const tool of catalog.tools) {
+      assert.equal(
+        tool.inputSchema.$schema ??
+          "https://json-schema.org/draft/2020-12/schema",
+        "https://json-schema.org/draft/2020-12/schema",
+      );
+      assert.equal(
+        ajv.validateSchema(tool.inputSchema),
+        true,
+        ajv.errorsText(),
+      );
+    }
+    const validate = ajv.compile(byName.get("rea_execute").inputSchema);
+    assert.equal(
+      validate({ code: "return 1;", timeout_ms: 2_147_483_647 }),
+      true,
+    );
+    assert.equal(
+      validate({ code: "return 1;", timeout_ms: 2_147_483_648 }),
+      false,
+    );
+    assert.equal(
+      validate({ code: "return 1;", memory_bytes: 128 * 1024 * 1024 + 1 }),
+      false,
+    );
     const found = json(
       await client.callTool({
         name: "rea_search",
@@ -256,6 +297,16 @@ test("bridge's two tools are usable through actual downstream stdio MCP", async 
       arguments: { code: 7 },
     });
     assert.equal(invalid.isError, true);
+    const oversized = await client.callTool({
+      name: "rea_execute",
+      arguments: { code: "return 1;", timeout_ms: 2_147_483_648 },
+    });
+    assert.equal(oversized.isError, true);
+    const oversizedMemory = await client.callTool({
+      name: "rea_execute",
+      arguments: { code: "return 1;", memory_bytes: 128 * 1024 * 1024 + 1 },
+    });
+    assert.equal(oversizedMemory.isError, true);
   } finally {
     await client.close();
   }

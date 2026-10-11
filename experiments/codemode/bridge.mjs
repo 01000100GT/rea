@@ -8,6 +8,18 @@ import { compile } from "json-schema-to-typescript";
 import { newQuickJSWASMModule, Scope } from "quickjs-emscripten";
 import { z } from "zod";
 
+// Node maps larger delays to 1 ms. Reject them before creating a timer.
+const executeInputSchema = z.strictObject({
+  code: z.string(),
+  timeout_ms: z.number().int().positive().max(2_147_483_647).optional(),
+  memory_bytes: z
+    .number()
+    .int()
+    .positive()
+    .max(128 * 1024 * 1024)
+    .optional(),
+});
+
 const digest = (value) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
@@ -143,7 +155,8 @@ export class CodeModeBridge {
 
   /** Serialize scripts sharing the active target; no implicit batch races. */
   execute(input, options = {}) {
-    const work = this.queue.then(() => this.run(input, options));
+    const parsed = executeInputSchema.parse(input);
+    const work = this.queue.then(() => this.run(parsed, options));
     this.queue = work.catch(() => undefined);
     return work;
   }
@@ -358,16 +371,7 @@ export function createBridgeServer(bridge) {
     {
       description:
         "Run a JavaScript async function body with tools.<original_REA_name>(original_arguments), json(reply) and return. Await every call. json(reply) returns the original REA value: Evidence has normalized_result, evidence_id and limitations; session values have result. Select the needed normalized_result fields inside code before returning them with Evidence IDs and limitations. One upstream session persists. Calls run in order, including Promise.all. All original REA effects, validation and retention apply; projections are caller selections, not new Evidence. No host IO or imports. Call audit and Evidence IDs survive script errors. Default deadline 120s and guest memory 128 MiB; use longer deadline for native analysis.",
-      inputSchema: z.strictObject({
-        code: z.string(),
-        timeout_ms: z.number().int().positive().optional(),
-        memory_bytes: z
-          .number()
-          .int()
-          .positive()
-          .max(128 * 1024 * 1024)
-          .optional(),
-      }),
+      inputSchema: executeInputSchema,
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,

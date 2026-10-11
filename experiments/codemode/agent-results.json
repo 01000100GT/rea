@@ -1,0 +1,995 @@
+{
+  "baseline_sha": "fb94d9dde0ccda83ae520ac6fb22b1d283562cf3",
+  "scope": "real_cli_requested_fact_parity_and_observed_references_not_independent_runtime_truth",
+  "runtime_source_commit": "22326e8199975f31d8b7c99aaf5fd64140fbe00e",
+  "artifact_ids": "corpus.json",
+  "resource_limits": {
+    "cpu_affinity": [15],
+    "cpu_quota_percent": 100,
+    "hard_memory_bytes": 4294967296,
+    "early_stop_bytes": 3221225472,
+    "tasks_max": 192
+  },
+  "notes": [
+    "Profiles differ in required mode-specific instructions; original model-selected arguments may differ.",
+    "Two Android/managed repetitions are descriptive samples, without confidence intervals or a causal speed claim.",
+    "Managed classification container omissions fail a stronger complete-object assertion; remaining requested facts match.",
+    "Normal-MCP managed JSONL truncation leaves one ID unavailable to the complete-envelope reference parser.",
+    "Uncached input is input minus cached input, not a currency cost estimate."
+  ],
+  "trials": [
+    {
+      "trial": "android-direct-5",
+      "task": "android",
+      "mode": "direct",
+      "artifact": "newpipe.apk",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 67.329,
+      "input_tokens": 107007,
+      "cached_input_tokens": 83712,
+      "uncached_input_tokens": 23295,
+      "output_tokens": 1670,
+      "completed_mcp_calls": 3,
+      "original_operations": [
+        "inspect_android_package",
+        "search_android_classes",
+        "inspect_android_class"
+      ],
+      "fact_assertions": 6,
+      "fact_mismatches": [],
+      "strict_grade_passed": true,
+      "cited_ids_observed": true,
+      "unreadable_result_texts": 0,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "7129418f2d4428d86cc737124b53636ba4a46de522e702e8861180fc175acb23",
+      "developer_instructions_sha256": "eaddc85aa5b141538ec280d640c62db799231b394679a17f2e6cc6bc2146a95c",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "3424dd6ba375f96d88fd0ac38102998948fa0fc46e08af8fae414572ba97a62f",
+      "peak_memory_bytes_sampled": 1336168448,
+      "peak_tasks_sampled": 108,
+      "cpu_stat_last_observed": {
+        "usage_usec": 23974584,
+        "user_usec": 21485565,
+        "system_usec": 2489019,
+        "nr_periods": 636,
+        "nr_throttled": 45,
+        "throttled_usec": 67840,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    },
+    {
+      "trial": "android-bridge-7",
+      "task": "android",
+      "mode": "bridge",
+      "artifact": "newpipe.apk",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 48.231,
+      "input_tokens": 113256,
+      "cached_input_tokens": 91648,
+      "uncached_input_tokens": 21608,
+      "output_tokens": 1456,
+      "completed_mcp_calls": 3,
+      "original_operations": [
+        "inspect_android_package",
+        "search_android_classes",
+        "inspect_android_class"
+      ],
+      "fact_assertions": 6,
+      "fact_mismatches": [],
+      "strict_grade_passed": true,
+      "cited_ids_observed": true,
+      "unreadable_result_texts": 0,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "7129418f2d4428d86cc737124b53636ba4a46de522e702e8861180fc175acb23",
+      "developer_instructions_sha256": "247ca3314340f748d1479cc1a0a1f33a234231f17b5768044034bdfe517299c6",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "27e234285e493b50929c0f98938284771d0d4a3787045872f2f517b2297aefeb",
+      "peak_memory_bytes_sampled": 1659629568,
+      "peak_tasks_sampled": 126,
+      "cpu_stat_last_observed": {
+        "usage_usec": 27717810,
+        "user_usec": 25042151,
+        "system_usec": 2675658,
+        "nr_periods": 458,
+        "nr_throttled": 50,
+        "throttled_usec": 73614,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    },
+    {
+      "trial": "managed-bridge-2",
+      "task": "managed",
+      "mode": "bridge",
+      "artifact": "sharex.dll",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 73.145,
+      "input_tokens": 116974,
+      "cached_input_tokens": 92672,
+      "uncached_input_tokens": 24302,
+      "output_tokens": 2065,
+      "completed_mcp_calls": 3,
+      "original_operations": [
+        "inspect_managed_artifact",
+        "inspect_managed_native_boundaries"
+      ],
+      "fact_assertions": 7,
+      "fact_mismatches": ["classification"],
+      "strict_grade_passed": false,
+      "cited_ids_observed": true,
+      "unreadable_result_texts": 0,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "fe5a74687126fca7aee78b3ba51f03401983ffeae593924b7c738d50d0f04e61",
+      "developer_instructions_sha256": "247ca3314340f748d1479cc1a0a1f33a234231f17b5768044034bdfe517299c6",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "06cbdda60ac930d00ade7e115cd4ba234527e297e6cfd931eedc175e00efa1c7",
+      "peak_memory_bytes_sampled": 939290624,
+      "peak_tasks_sampled": 103,
+      "cpu_stat_last_observed": {
+        "usage_usec": 12114716,
+        "user_usec": 9701516,
+        "system_usec": 2413200,
+        "nr_periods": 630,
+        "nr_throttled": 16,
+        "throttled_usec": 15944,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    },
+    {
+      "trial": "managed-direct-2",
+      "task": "managed",
+      "mode": "direct",
+      "artifact": "sharex.dll",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 33.15,
+      "input_tokens": 108096,
+      "cached_input_tokens": 75776,
+      "uncached_input_tokens": 32320,
+      "output_tokens": 2315,
+      "completed_mcp_calls": 2,
+      "original_operations": [
+        "inspect_managed_artifact",
+        "inspect_managed_native_boundaries"
+      ],
+      "fact_assertions": 7,
+      "fact_mismatches": [],
+      "strict_grade_passed": false,
+      "cited_ids_observed": false,
+      "unreadable_result_texts": 1,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "fe5a74687126fca7aee78b3ba51f03401983ffeae593924b7c738d50d0f04e61",
+      "developer_instructions_sha256": "eaddc85aa5b141538ec280d640c62db799231b394679a17f2e6cc6bc2146a95c",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "5d6957541bd979252d019817e631f5d889ff2dc3efb7f03b9de1033fe34d8430",
+      "peak_memory_bytes_sampled": 688373760,
+      "peak_tasks_sampled": 108,
+      "cpu_stat_last_observed": {
+        "usage_usec": 5863642,
+        "user_usec": 4359666,
+        "system_usec": 1503976,
+        "nr_periods": 282,
+        "nr_throttled": 4,
+        "throttled_usec": 6216,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    },
+    {
+      "trial": "electron-inventory-direct-1",
+      "task": "electron-inventory",
+      "mode": "direct",
+      "artifact": "obsidian.asar",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 89.494,
+      "input_tokens": 266121,
+      "cached_input_tokens": 238848,
+      "uncached_input_tokens": 27273,
+      "output_tokens": 3215,
+      "completed_mcp_calls": 3,
+      "original_operations": [
+        "open_binary",
+        "inspect_artifact",
+        "close_binary"
+      ],
+      "fact_assertions": 7,
+      "fact_mismatches": [],
+      "strict_grade_passed": true,
+      "cited_ids_observed": true,
+      "unreadable_result_texts": 0,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "22941dc5d77ce06824e40b01abd3f725aa773d131648d7bba2e607b410ccbef9",
+      "developer_instructions_sha256": "eaddc85aa5b141538ec280d640c62db799231b394679a17f2e6cc6bc2146a95c",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "fcd0df1a3ae0b5103143addaa4922323354ddee7ba3d0e3020de64f05b6fe3d3",
+      "peak_memory_bytes_sampled": 703275008,
+      "peak_tasks_sampled": 115,
+      "cpu_stat_last_observed": {
+        "usage_usec": 7720494,
+        "user_usec": 5691854,
+        "system_usec": 2028640,
+        "nr_periods": 782,
+        "nr_throttled": 7,
+        "throttled_usec": 15453,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    },
+    {
+      "trial": "electron-inventory-bridge-1",
+      "task": "electron-inventory",
+      "mode": "bridge",
+      "artifact": "obsidian.asar",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 145.577,
+      "input_tokens": 462809,
+      "cached_input_tokens": 407040,
+      "uncached_input_tokens": 55769,
+      "output_tokens": 5624,
+      "completed_mcp_calls": 8,
+      "original_operations": [
+        "open_binary",
+        "inspect_artifact",
+        "close_binary",
+        "open_binary",
+        "inspect_artifact",
+        "close_binary"
+      ],
+      "fact_assertions": 7,
+      "fact_mismatches": [],
+      "strict_grade_passed": true,
+      "cited_ids_observed": true,
+      "unreadable_result_texts": 0,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "22941dc5d77ce06824e40b01abd3f725aa773d131648d7bba2e607b410ccbef9",
+      "developer_instructions_sha256": "247ca3314340f748d1479cc1a0a1f33a234231f17b5768044034bdfe517299c6",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "ab7e25e4345a0e9bba6a06bb0a79aa39e1bf1308b6a66f8173a62bbc9e2d9fc9",
+      "peak_memory_bytes_sampled": 1029238784,
+      "peak_tasks_sampled": 112,
+      "cpu_stat_last_observed": {
+        "usage_usec": 14650718,
+        "user_usec": 12106416,
+        "system_usec": 2544302,
+        "nr_periods": 1224,
+        "nr_throttled": 24,
+        "throttled_usec": 30318,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    },
+    {
+      "trial": "firmware-bridge-1",
+      "task": "firmware",
+      "mode": "bridge",
+      "artifact": "openwrt.bin",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 81.944,
+      "input_tokens": 152886,
+      "cached_input_tokens": 126976,
+      "uncached_input_tokens": 25910,
+      "output_tokens": 2192,
+      "completed_mcp_calls": 3,
+      "original_operations": ["inspect_firmware_regions"],
+      "fact_assertions": 5,
+      "fact_mismatches": [],
+      "strict_grade_passed": true,
+      "cited_ids_observed": true,
+      "unreadable_result_texts": 0,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "93c94e26dc4a4b1985b3f8c4246ca5aff886f75dc2349a717ee940243dc73b80",
+      "developer_instructions_sha256": "247ca3314340f748d1479cc1a0a1f33a234231f17b5768044034bdfe517299c6",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "a5604d0d3140f6232851a81a952e51daf43c8e7f12ba062fac68a8fae0bef708",
+      "peak_memory_bytes_sampled": 927666176,
+      "peak_tasks_sampled": 104,
+      "cpu_stat_last_observed": {
+        "usage_usec": 11575373,
+        "user_usec": 9366624,
+        "system_usec": 2208749,
+        "nr_periods": 744,
+        "nr_throttled": 18,
+        "throttled_usec": 26000,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    },
+    {
+      "trial": "firmware-direct-1",
+      "task": "firmware",
+      "mode": "direct",
+      "artifact": "openwrt.bin",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 30.161,
+      "input_tokens": 103224,
+      "cached_input_tokens": 74752,
+      "uncached_input_tokens": 28472,
+      "output_tokens": 1761,
+      "completed_mcp_calls": 1,
+      "original_operations": ["inspect_firmware_regions"],
+      "fact_assertions": 5,
+      "fact_mismatches": [],
+      "strict_grade_passed": true,
+      "cited_ids_observed": true,
+      "unreadable_result_texts": 0,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "93c94e26dc4a4b1985b3f8c4246ca5aff886f75dc2349a717ee940243dc73b80",
+      "developer_instructions_sha256": "eaddc85aa5b141538ec280d640c62db799231b394679a17f2e6cc6bc2146a95c",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "c0bbd1aec08c9c30061f92064355c3213f680fab545a050271096e85db771a71",
+      "peak_memory_bytes_sampled": 686739456,
+      "peak_tasks_sampled": 109,
+      "cpu_stat_last_observed": {
+        "usage_usec": 5700866,
+        "user_usec": 4167696,
+        "system_usec": 1533169,
+        "nr_periods": 266,
+        "nr_throttled": 6,
+        "throttled_usec": 3978,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    },
+    {
+      "trial": "native-direct-1",
+      "task": "native",
+      "mode": "direct",
+      "artifact": "jq",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 327.15,
+      "input_tokens": 151343,
+      "cached_input_tokens": 122368,
+      "uncached_input_tokens": 28975,
+      "output_tokens": 2458,
+      "completed_mcp_calls": 4,
+      "original_operations": [
+        "open_binary",
+        "resolve_containing_procedure",
+        "analyze_function",
+        "close_binary"
+      ],
+      "fact_assertions": 7,
+      "fact_mismatches": [],
+      "strict_grade_passed": true,
+      "cited_ids_observed": true,
+      "unreadable_result_texts": 0,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "234bfe93d09f9c76c1a64383c11cf7c174eafa4e4ad563124f705a7d5c8920aa",
+      "developer_instructions_sha256": "eaddc85aa5b141538ec280d640c62db799231b394679a17f2e6cc6bc2146a95c",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "681f38e4ba9b441e7816e868b30e347005fe074907349cd0022fc44302c5b14a",
+      "peak_memory_bytes_sampled": 1328496640,
+      "peak_tasks_sampled": 109,
+      "cpu_stat_last_observed": {
+        "usage_usec": 263737951,
+        "user_usec": 256864795,
+        "system_usec": 6873156,
+        "nr_periods": 3192,
+        "nr_throttled": 456,
+        "throttled_usec": 756678,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    },
+    {
+      "trial": "native-bridge-1",
+      "task": "native",
+      "mode": "bridge",
+      "artifact": "jq",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 334.642,
+      "input_tokens": 285961,
+      "cached_input_tokens": 245504,
+      "uncached_input_tokens": 40457,
+      "output_tokens": 2129,
+      "completed_mcp_calls": 4,
+      "original_operations": [
+        "open_binary",
+        "analyze_function",
+        "close_binary"
+      ],
+      "fact_assertions": 7,
+      "fact_mismatches": [],
+      "strict_grade_passed": true,
+      "cited_ids_observed": true,
+      "unreadable_result_texts": 0,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "234bfe93d09f9c76c1a64383c11cf7c174eafa4e4ad563124f705a7d5c8920aa",
+      "developer_instructions_sha256": "247ca3314340f748d1479cc1a0a1f33a234231f17b5768044034bdfe517299c6",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "6c64953708df4a06b69fb57e5d70141147e4495adabd7340e87e727fcd340742",
+      "peak_memory_bytes_sampled": 1441775616,
+      "peak_tasks_sampled": 123,
+      "cpu_stat_last_observed": {
+        "usage_usec": 271095966,
+        "user_usec": 263888347,
+        "system_usec": 7207618,
+        "nr_periods": 3267,
+        "nr_throttled": 450,
+        "throttled_usec": 784719,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    },
+    {
+      "trial": "android-bridge-8",
+      "task": "android",
+      "mode": "bridge",
+      "artifact": "newpipe.apk",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 134.555,
+      "input_tokens": 159370,
+      "cached_input_tokens": 134400,
+      "uncached_input_tokens": 24970,
+      "output_tokens": 3250,
+      "completed_mcp_calls": 7,
+      "original_operations": [
+        "inspect_android_package",
+        "search_android_classes",
+        "inspect_android_class",
+        "inspect_android_package",
+        "inspect_android_package",
+        "search_android_classes",
+        "inspect_android_class"
+      ],
+      "fact_assertions": 6,
+      "fact_mismatches": [],
+      "strict_grade_passed": true,
+      "cited_ids_observed": true,
+      "unreadable_result_texts": 0,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "7129418f2d4428d86cc737124b53636ba4a46de522e702e8861180fc175acb23",
+      "developer_instructions_sha256": "247ca3314340f748d1479cc1a0a1f33a234231f17b5768044034bdfe517299c6",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "f1743a341d334bd41760b54980aa70d5f3c8c1aed57c3ae9e470be63449c594d",
+      "peak_memory_bytes_sampled": 1659744256,
+      "peak_tasks_sampled": 115,
+      "cpu_stat_last_observed": {
+        "usage_usec": 29619173,
+        "user_usec": 26495167,
+        "system_usec": 3124005,
+        "nr_periods": 1229,
+        "nr_throttled": 60,
+        "throttled_usec": 84762,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    },
+    {
+      "trial": "android-direct-6",
+      "task": "android",
+      "mode": "direct",
+      "artifact": "newpipe.apk",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 71.624,
+      "input_tokens": 153031,
+      "cached_input_tokens": 117504,
+      "uncached_input_tokens": 35527,
+      "output_tokens": 1501,
+      "completed_mcp_calls": 3,
+      "original_operations": [
+        "inspect_android_package",
+        "search_android_classes",
+        "inspect_android_class"
+      ],
+      "fact_assertions": 6,
+      "fact_mismatches": [],
+      "strict_grade_passed": true,
+      "cited_ids_observed": true,
+      "unreadable_result_texts": 0,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "7129418f2d4428d86cc737124b53636ba4a46de522e702e8861180fc175acb23",
+      "developer_instructions_sha256": "eaddc85aa5b141538ec280d640c62db799231b394679a17f2e6cc6bc2146a95c",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "b8d0422eec6bfd31a9a6ed79ac29e9487c2e68c47ff200904ec239daee9720c3",
+      "peak_memory_bytes_sampled": 1348767744,
+      "peak_tasks_sampled": 115,
+      "cpu_stat_last_observed": {
+        "usage_usec": 23033331,
+        "user_usec": 20566262,
+        "system_usec": 2467069,
+        "nr_periods": 674,
+        "nr_throttled": 40,
+        "throttled_usec": 61573,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    },
+    {
+      "trial": "managed-direct-3",
+      "task": "managed",
+      "mode": "direct",
+      "artifact": "sharex.dll",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 75.229,
+      "input_tokens": 108593,
+      "cached_input_tokens": 75776,
+      "uncached_input_tokens": 32817,
+      "output_tokens": 2774,
+      "completed_mcp_calls": 2,
+      "original_operations": [
+        "inspect_managed_artifact",
+        "inspect_managed_native_boundaries"
+      ],
+      "fact_assertions": 7,
+      "fact_mismatches": [],
+      "strict_grade_passed": false,
+      "cited_ids_observed": false,
+      "unreadable_result_texts": 1,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "fe5a74687126fca7aee78b3ba51f03401983ffeae593924b7c738d50d0f04e61",
+      "developer_instructions_sha256": "eaddc85aa5b141538ec280d640c62db799231b394679a17f2e6cc6bc2146a95c",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "64f0769b7ad83f8d86c005a48de7a0cf397043d77378983fabfaa226dcb70f87",
+      "peak_memory_bytes_sampled": 651026432,
+      "peak_tasks_sampled": 110,
+      "cpu_stat_last_observed": {
+        "usage_usec": 6252846,
+        "user_usec": 4688766,
+        "system_usec": 1564079,
+        "nr_periods": 635,
+        "nr_throttled": 7,
+        "throttled_usec": 11469,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    },
+    {
+      "trial": "managed-bridge-3",
+      "task": "managed",
+      "mode": "bridge",
+      "artifact": "sharex.dll",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 40.609,
+      "input_tokens": 125519,
+      "cached_input_tokens": 96000,
+      "uncached_input_tokens": 29519,
+      "output_tokens": 2274,
+      "completed_mcp_calls": 3,
+      "original_operations": [
+        "inspect_managed_artifact",
+        "inspect_managed_native_boundaries"
+      ],
+      "fact_assertions": 7,
+      "fact_mismatches": ["classification"],
+      "strict_grade_passed": false,
+      "cited_ids_observed": true,
+      "unreadable_result_texts": 0,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "fe5a74687126fca7aee78b3ba51f03401983ffeae593924b7c738d50d0f04e61",
+      "developer_instructions_sha256": "247ca3314340f748d1479cc1a0a1f33a234231f17b5768044034bdfe517299c6",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "5fbc3cf0b41224f2ef44ab996b174c8a48fe07a818ac2ad334ef59e5ddf26de6",
+      "peak_memory_bytes_sampled": 1005625344,
+      "peak_tasks_sampled": 113,
+      "cpu_stat_last_observed": {
+        "usage_usec": 11185145,
+        "user_usec": 9300437,
+        "system_usec": 1884707,
+        "nr_periods": 366,
+        "nr_throttled": 21,
+        "throttled_usec": 24147,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    },
+    {
+      "trial": "electron-inventory-guided-bridge-1",
+      "task": "electron-inventory",
+      "mode": "bridge",
+      "artifact": "obsidian.asar",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 85.909,
+      "input_tokens": 101994,
+      "cached_input_tokens": 61440,
+      "uncached_input_tokens": 40554,
+      "output_tokens": 2563,
+      "completed_mcp_calls": 3,
+      "original_operations": [
+        "open_binary",
+        "inspect_artifact",
+        "close_binary"
+      ],
+      "fact_assertions": 7,
+      "fact_mismatches": [],
+      "strict_grade_passed": true,
+      "cited_ids_observed": true,
+      "unreadable_result_texts": 0,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "f070cdf721805d590c1bd5255ecf1f647ea165885cd5052af35c30ba531da815",
+      "developer_instructions_sha256": "247ca3314340f748d1479cc1a0a1f33a234231f17b5768044034bdfe517299c6",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "566391b8a6db73228fec00dc7cbf0eaf56ed899178a405d5d8f0c8002fb05d89",
+      "peak_memory_bytes_sampled": 1007996928,
+      "peak_tasks_sampled": 109,
+      "cpu_stat_last_observed": {
+        "usage_usec": 13304542,
+        "user_usec": 10842042,
+        "system_usec": 2462499,
+        "nr_periods": 787,
+        "nr_throttled": 19,
+        "throttled_usec": 27407,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    },
+    {
+      "trial": "electron-inventory-guided-direct-1",
+      "task": "electron-inventory",
+      "mode": "direct",
+      "artifact": "obsidian.asar",
+      "requested_model": "gpt-5.6-terra",
+      "reasoning": "high",
+      "codex_version": "codex-cli 0.161.0",
+      "wall_seconds": 67.54,
+      "input_tokens": 263484,
+      "cached_input_tokens": 221952,
+      "uncached_input_tokens": 41532,
+      "output_tokens": 2499,
+      "completed_mcp_calls": 4,
+      "original_operations": [
+        "open_binary",
+        "inspect_artifact",
+        "inspect_artifact",
+        "close_binary"
+      ],
+      "fact_assertions": 7,
+      "fact_mismatches": [],
+      "strict_grade_passed": true,
+      "cited_ids_observed": true,
+      "unreadable_result_texts": 0,
+      "grader_sha256": "707e4eef05634db5075ac64382500b9eea03b38f828358315e54381f9d4a8979",
+      "prompt_sha256": "f070cdf721805d590c1bd5255ecf1f647ea165885cd5052af35c30ba531da815",
+      "developer_instructions_sha256": "eaddc85aa5b141538ec280d640c62db799231b394679a17f2e6cc6bc2146a95c",
+      "provider_settings_sha256": "1db4e19adcb32bb64a3baad58a1b4ef04b52ba648bab29678693f9ab8dbdabb4",
+      "experiment_sources_sha256": {
+        "agent-trial.py": "3c96d0f7b4b3dd02d168258d8aedd79049bb8647f1ebb174b056bd8eaa582502",
+        "bridge.mjs": "c1afb88a3045f233006826ffd466590b33027cc7b95f9c6c551ba1aa93fa4727",
+        "package-lock.json": "6dab2b2dba5101992e9a881ce1820475bd304511dc44362bb1614b08e9b37a87"
+      },
+      "events_sha256": "564711cf28211bb7059a04b919f1b6925a816ded3e2dbeb9678382568f700e58",
+      "peak_memory_bytes_sampled": 728817664,
+      "peak_tasks_sampled": 114,
+      "cpu_stat_last_observed": {
+        "usage_usec": 8708686,
+        "user_usec": 6609914,
+        "system_usec": 2098771,
+        "nr_periods": 597,
+        "nr_throttled": 12,
+        "throttled_usec": 19564,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "resource_abort": null,
+      "resource_events_last_observed": {
+        "memory.events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "pids.events": {
+          "max": 0
+        }
+      }
+    }
+  ]
+}

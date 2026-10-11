@@ -19,5 +19,8 @@
     "json-schema-to-typescript": "16.0.0",
     "quickjs-emscripten": "0.32.0",
     "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0"
   }
 }

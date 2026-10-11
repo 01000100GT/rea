@@ -295,3 +295,73 @@ recursive record walk happens to match this corpus, but format-specific field
 selection is the stronger recipe. Both model profiles choose record-and-continue
 for integrity; deterministic inventory replays used fail. No contradictions were
 observed, and the exact caller-selected arguments are retained.
+
+## Completed serial cohort
+
+The final sixteen-row cohort, raw-event digests, exact runner/bridge/lockfile
+fingerprints, prompt/instruction/provider digests and sampled resource stats are
+in [agent-results.json](agent-results.json). The requested model configuration is
+Terra high. Two managed bridge answers omit the classification container field
+under the stronger full-object check; two normal-MCP managed logs have a truncated
+producer envelope. The twelve other rows pass requested fact and observed-reference
+checks. This is producer parity, not independent runtime truth or a per-fact
+citation-association proof. Earlier stricter report-form grades remain retained.
+
+| Trial                              | Wall seconds |  Input | Cached | Uncached | Output | MCP calls | Check                             |
+| ---------------------------------- | -----------: | -----: | -----: | -------: | -----: | --------: | --------------------------------- |
+| android-direct-5                   |       67.329 | 107007 |  83712 |    23295 |   1670 |         3 | pass                              |
+| android-bridge-7                   |       48.231 | 113256 |  91648 |    21608 |   1456 |         3 | pass                              |
+| managed-bridge-2                   |       73.145 | 116974 |  92672 |    24302 |   2065 |         3 | classification container omitted  |
+| managed-direct-2                   |       33.150 | 108096 |  75776 |    32320 |   2315 |         2 | facts match; reference unverified |
+| electron-inventory-direct-1        |       89.494 | 266121 | 238848 |    27273 |   3215 |         3 | pass                              |
+| electron-inventory-bridge-1        |      145.577 | 462809 | 407040 |    55769 |   5624 |         8 | pass                              |
+| firmware-bridge-1                  |       81.944 | 152886 | 126976 |    25910 |   2192 |         3 | pass                              |
+| firmware-direct-1                  |       30.161 | 103224 |  74752 |    28472 |   1761 |         1 | pass                              |
+| native-direct-1                    |      327.150 | 151343 | 122368 |    28975 |   2458 |         4 | pass                              |
+| native-bridge-1                    |      334.642 | 285961 | 245504 |    40457 |   2129 |         4 | pass                              |
+| android-bridge-8                   |      134.555 | 159370 | 134400 |    24970 |   3250 |         7 | pass                              |
+| android-direct-6                   |       71.624 | 153031 | 117504 |    35527 |   1501 |         3 | pass                              |
+| managed-direct-3                   |       75.229 | 108593 |  75776 |    32817 |   2774 |         2 | facts match; reference unverified |
+| managed-bridge-3                   |       40.609 | 125519 |  96000 |    29519 |   2274 |         3 | classification container omitted  |
+| electron-inventory-guided-bridge-1 |       85.909 | 101994 |  61440 |    40554 |   2563 |         3 | pass                              |
+| electron-inventory-guided-direct-1 |       67.540 | 263484 | 221952 |    41532 |   2499 |         4 | pass                              |
+
+Ghidra's aggregate sampled CPU time is 263.738 seconds directly and 271.096 with
+the bridge. The bridge uses three original operations versus four directly,
+obtaining containing identity from the analyzed procedure. Both close the session
+successfully. The native comparison uses the same default analysis settings;
+these data do not establish a meaningful native speedup.
+
+The second Android bridge repetition completes seven original calls across five
+scripts, without tool errors, before its final composed answer. Its 134.555-second
+result reverses the first repetition's latency advantage. The model did not
+reliably choose one composed execution even with explicit guidance. Uncached
+input is lower in both bridge repetitions, while output and latency vary.
+
+The guided Electron question explicitly names the existing operations and the
+nested inventory's manifest/occurrences layout for both profiles. Both pass, with
+integrity_policy=fail. The bridge composes open/inspect/close once; the normal-MCP
+profile repeats inspect_artifact. The total-input reduction from 263484 to 101994
+is large, but uncached input differs by only 978 tokens and bridge latency is
+higher. Earlier non-guided profiles are a different question and cannot support
+a causal prompt-improvement ratio. Unknown nested payload types remain an observed
+contract-discovery problem; caller-selected values and identities are preserved.
+
+All sixteen runs stay below memory/task ceilings, with maximum sampled memory
+1659744256 bytes and 126 tasks; no observed memory/task limit event or resource
+abort occurs. Copied profile count is zero at completion. Runtime measurements
+belong to the recorded source fingerprint at 22326e819; subsequent timer-range
+validation and test-only Ajv installation are not new model measurements.
+
+Final boundary verification passes twelve actual SDK/stdio tests. A 2 MiB guest
+budget rejects allocation pressure and the next execution succeeds. This is a
+guest-budget failure, not an OS OOM or provider behavior claim. A local pinned-Node
+probe shows a 2147483648-ms timeout becomes 1 ms; the owning named execution
+contract now rejects that range before allocation. After SDK conversion, both
+advertised bridge input schemas validate under JSON Schema 2020-12, and the actual
+stdio client rejects invalid code, oversized memory and timer values. Sampled
+suite memory peaks at 1387433984 bytes, with zero observed memory/task limit events.
+
+See [decision.md](decision.md) for the recommendation: keep current REA contracts,
+improve focused Evidence-aware workflow guidance, and retain the bridge as an
+opt-in candidate. A broad default switch is not justified by these samples.

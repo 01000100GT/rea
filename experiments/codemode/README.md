@@ -51,11 +51,14 @@ Calls and executions sharing one active target are serialized; `Promise.all`
 currently provides composition rather than parallel provider execution.
 
 `npm test` runs actual upstream and downstream stdio MCP against this checkout's
-compiled runtime. The standalone experiment's eleven tests cover discovery parity,
+compiled runtime. The standalone experiment's twelve tests cover discovery parity,
 original results/errors, bulk promise settlement, host capability absence, CPU
 deadline recovery, retained Evidence after an error or provider timeout,
 queued-call cancellation, unresolved promises and the
-two-tool downstream boundary. These tests do not establish real native/Android/
+two-tool downstream boundary, guest heap exhaustion/reuse, and SDK-converted
+schemas validated as [JSON Schema 2020-12](https://modelcontextprotocol.io/specification/2025-11-25/basic/index#schema-dialect).
+Execution rejects delays above Node's signed 32-bit timer range instead of
+allowing Node to coerce them to 1 ms. These tests do not establish real native/Android/
 firmware provider behavior. A lifecycle regression revealed that the QuickJS job
 pump can allocate an additional context: the execution scope now owns every
 context at creation and releases them before the runtime. Increasing memory did
@@ -134,6 +137,9 @@ independent decompiler correctness. Unparseable result text is reported explicit
 IDs in a truncated JSON fragment cannot satisfy the automated reference check.
 The Android projection includes the provider's overload index, so a supported
 signature with that field omitted fails this stronger assertion.
+An omitted DEX descriptor differs from an explicit null, and booleans differ from
+numeric counts. Native containing-procedure reports compare resolved identity;
+the full analyzed procedure is verified separately.
 Firmware's run-local region UUIDs remain in answers but are excluded from parity
 against an independently acquired report. Classification evidence, explicit
 unknowns and coverage remain part of the requested fact checks.
@@ -144,6 +150,11 @@ engine version and executable digest rather than display capitalization; a manua
 review is still needed for limitations and claims beyond these assertions.
 Grades record the grader source digest, and earlier strict grades are retained
 when the comparison changes. These are report parsers, not REA API aliases.
+
+The completed serial cohort is in [agent-results.json](agent-results.json), with
+source/configuration fingerprints, measured API usage and sampled cgroup stats.
+The recommendation and migration boundaries are in [decision.md](decision.md).
+Raw transcripts and original replay replies remain outside Git.
 
 The supplied feedback is a research lead. Its Ghidra timing claim also changed
 auto-analysis options, so it does not isolate Code Mode's effect. Relevant primary

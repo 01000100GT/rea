@@ -6,6 +6,22 @@ import json
 from pathlib import Path
 
 
+def required_field(row, key):
+    return row[key] if key in row else {'missing_field': key}
+
+
+def same_fact(actual, expected):
+    if isinstance(actual, bool) or isinstance(expected, bool):
+        return type(actual) is type(expected) and actual == expected
+    if isinstance(expected, dict):
+        return isinstance(actual, dict) and actual.keys() == expected.keys() and all(
+            same_fact(actual[key], value) for key, value in expected.items())
+    if isinstance(expected, list):
+        return isinstance(actual, list) and len(actual) == len(expected) and all(
+            same_fact(a, b) for a, b in zip(actual, expected))
+    return actual == expected
+
+
 def evidence_ids(value):
     if isinstance(value, str):
         return {value} if value.startswith('ev_') and len(value) == 67 else set()
@@ -33,9 +49,16 @@ def read_answer(path):
 
 def requested_facts(value, task):
     if task == 'native':
-        return {field: value.get(field) for field in [
+        facts = {field: value.get(field) for field in [
             'artifact_sha256', 'entry_address', 'containing_procedure',
             'procedure', 'pseudocode_prefix', 'caller_count', 'callee_count']}
+        containing = facts['containing_procedure']
+        if isinstance(containing, dict) and containing.get('found', True) is True and \
+                containing.get('query_address', facts['entry_address']) == facts['entry_address']:
+            identity = containing.get('procedure', containing)
+            if isinstance(identity, dict):
+                facts['containing_procedure'] = {key: identity.get(key) for key in ['address', 'name']}
+        return facts
     if task == 'electron-inventory':
         facts = {field: value.get(field) for field in [
             'artifact_sha256', 'manifest', 'entry_kind_counts', 'requested_paths',
@@ -100,9 +123,12 @@ def requested_facts(value, task):
     if task == 'managed':
         def selected(field, keys):
             row = value.get(field)
-            return {key: row.get(key) for key in keys} if isinstance(row, dict) else row
+            return {key: required_field(row, key) for key in keys} if isinstance(row, dict) else row
         coverage = value.get('coverage')
         if isinstance(coverage, dict):
+            coverage = {'managed_artifact': coverage.get('managed_artifact'),
+                        'native_boundaries': coverage.get('native_boundaries',
+                                                          coverage.get('managed_native_boundaries'))}
             coverage = {key: {field: row.get(field) for field in ['state', 'issues']}
                         if isinstance(row, dict) else row
                         for key, row in coverage.items() if key in ['managed_artifact', 'native_boundaries']}
@@ -119,7 +145,7 @@ def requested_facts(value, task):
         'artifact_sha256', 'package_name', 'version_name', 'version_code', 'matches', 'onCreate']}
     methods = facts['onCreate']
     if isinstance(methods, list) and all(isinstance(row, dict) for row in methods):
-        facts['onCreate'] = [{key: row.get(key) for key in [
+        facts['onCreate'] = [{key: required_field(row, key) for key in [
             'reported_signature', 'overload_index', 'dex_descriptor']} for row in methods]
     return facts
 
@@ -184,7 +210,7 @@ def main():
     actual_facts = requested_facts(answer, args.task)
     for field, wanted in expected.items():
         actual = actual_facts[field]
-        if actual != wanted:
+        if not same_fact(actual, wanted):
             failures.append({'kind': 'fact_mismatch', 'field': field,
                              'expected': wanted, 'actual': actual})
     observed = set()
