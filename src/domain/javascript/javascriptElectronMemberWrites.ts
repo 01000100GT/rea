@@ -5,8 +5,8 @@ import {
   semanticMemberWriteTargets,
   unwrapJavaScriptExpression,
 } from "./javascriptAstValues.js";
-import { SemanticPropertyPathCoverage } from "./javascriptSemanticPropertyPaths.js";
 import { traverseJavaScriptAstSteps } from "./javascriptSemanticTraversal.js";
+import { stringValue } from "./javascriptStaticAnalysisHelpers.js";
 
 /** Match Electron's supported module entry points. */
 export const ELECTRON_MODULE =
@@ -24,7 +24,7 @@ export const electronExportPath = (
 
 /** Static identity recovery cannot establish the absence of Electron usage. */
 export const ELECTRON_IDENTITY_LIMITATION =
-  "Electron API identity follows proven lexical module aliases. Reassigned bindings, dynamic selections, and visibly overwritten namespace members are unresolved; missing findings do not establish absence. Arbitrary call side effects and runtime registration are not evaluated.";
+  "Electron API identity follows proven lexical module aliases and structurally verified module-namespace interop. Other reassignments, dynamic selections, and visibly overwritten namespace members are unresolved; missing findings do not establish absence. Arbitrary call side effects and runtime registration are not evaluated.";
 
 /** Preserve exact property segments instead of flattening literal dotted keys. */
 export const electronMemberPath = (
@@ -42,14 +42,89 @@ export const electronMemberPath = (
   return { root, members: members.toReversed() };
 };
 
-/** Index visible writes through proven Electron aliases, without executing them. */
-export function* collectElectronMemberWritesSteps(
+/** Index member and binding writes through caller-proven lexical identities. */
+export function* collectJavaScriptIdentityWritesSteps(
   program: t.Program,
-  origin: (root: t.Node) => readonly string[] | undefined,
-): Generator<void, SemanticPropertyPathCoverage> {
-  const writes = new SemanticPropertyPathCoverage();
+  origin: (
+    root: t.Node,
+    kind: "binding" | "member" | "opaque-call",
+  ) => readonly string[] | undefined,
+  intrinsic: (node: t.Node) => readonly string[] | undefined,
+  retain: (node: t.Node, path: readonly (string | null)[]) => void,
+): Generator<void> {
+  const objectMutators = new Set([
+    "defineProperty",
+    "defineProperties",
+    "assign",
+    "setPrototypeOf",
+  ]);
+  const reflectMutators = new Set([
+    "set",
+    "deleteProperty",
+    "defineProperty",
+    "setPrototypeOf",
+  ]);
+  const keyedMutators = new Set(["set", "deleteProperty", "defineProperty"]);
   yield* traverseJavaScriptAstSteps(program, {
     enter: (node) => {
+      if (t.isCallExpression(node) || t.isOptionalCallExpression(node)) {
+        let callee = intrinsic(node.callee);
+        let arguments_ = node.arguments;
+        let applied: t.Node | undefined;
+        let usesApply = false;
+        if (callee?.join(".") === "intrinsic.Reflect.apply") {
+          usesApply = true;
+          const callable = arguments_[0];
+          callee = t.isNode(callable) ? intrinsic(callable) : undefined;
+          applied = arguments_[2];
+        }
+        if (callee?.at(-1) === "call") {
+          callee = callee.slice(0, -1);
+          arguments_ = arguments_.slice(1);
+        } else if (callee?.at(-1) === "apply") {
+          usesApply = true;
+          callee = callee.slice(0, -1);
+          applied = arguments_[1];
+        }
+        if (usesApply)
+          arguments_ =
+            t.isArrayExpression(applied) &&
+            applied.elements.every((element) => t.isExpression(element))
+              ? applied.elements.filter((element): element is t.Expression =>
+                  t.isExpression(element),
+                )
+              : [];
+        const method = callee?.at(-1);
+        const owner = callee?.length === 3 ? callee[1] : undefined;
+        if (
+          (owner === "Object" && objectMutators.has(method ?? "")) ||
+          (owner === "Reflect" && reflectMutators.has(method ?? ""))
+        ) {
+          const target = arguments_[0];
+          // A known mutator with an opaque argument list can overwrite any
+          // captured intrinsic. Do not turn an unexamined target into proof.
+          if (target === undefined || t.isSpreadElement(target)) {
+            const scope = origin(node, "opaque-call");
+            if (scope !== undefined) retain(node, scope);
+          }
+          if (t.isNode(target) && !t.isSpreadElement(target)) {
+            const { root, members } = electronMemberPath(target);
+            const exported = origin(root, "member");
+            if (exported !== undefined) {
+              const key = keyedMutators.has(method ?? "")
+                ? [stringValue(arguments_[1]) ?? null]
+                : [];
+              retain(node, [...exported, ...members, ...key]);
+            } else if (
+              !t.isObjectExpression(target) &&
+              !t.isArrayExpression(target)
+            ) {
+              const scope = origin(node, "opaque-call");
+              if (scope !== undefined) retain(node, scope);
+            }
+          }
+        }
+      }
       const target = t.isAssignmentExpression(node)
         ? node.left
         : t.isUpdateExpression(node)
@@ -60,12 +135,15 @@ export function* collectElectronMemberWritesSteps(
               ? node.left
               : undefined;
       if (target === undefined) return;
+      if (t.isIdentifier(target)) {
+        const exported = origin(target, "binding");
+        if (exported !== undefined) retain(node, exported);
+      }
       for (const member of semanticMemberWriteTargets(target)) {
         const { root, members } = electronMemberPath(member);
-        const exported = origin(root);
-        if (exported !== undefined) writes.retain([...exported, ...members]);
+        const exported = origin(root, "member");
+        if (exported !== undefined) retain(node, [...exported, ...members]);
       }
     },
   });
-  return writes;
 }

@@ -46,7 +46,7 @@ import {
 import { collectJavaScriptDerivedSemanticsSteps } from "./javascriptSemanticDerivedAnalysis.js";
 import { evaluateSemanticProvenance } from "./javascriptSemanticValues.js";
 import {
-  collectElectronMemberWritesSteps,
+  collectJavaScriptIdentityWritesSteps,
   electronExportPath,
   electronMemberPath,
   ELECTRON_MODULE,
@@ -61,6 +61,8 @@ import {
 } from "./javascriptSourceParser.js";
 
 import { isJavaScriptRpcClientFactory } from "./javascriptRpcEndpoints.js";
+import { createSemanticModuleInterop } from "./javascriptModuleInterop.js";
+import { SemanticPropertyPathCoverage } from "./javascriptSemanticPropertyPaths.js";
 
 interface BindPatternInput {
   readonly pattern: t.Node;
@@ -371,6 +373,9 @@ export function* classifyParsedJavaScriptElectronBindingsSteps(
   const facts = new Map<number, readonly string[]>();
   const state = createState(file.program);
   yield* collectDefinitionsSteps(file.program, state);
+  const interop = createSemanticModuleInterop(state);
+  const writes = new SemanticPropertyPathCoverage();
+  let collectedWrites = false;
   const exportsByBinding = new Map<string, readonly string[] | null>();
   const rootExport = (root: t.Node): readonly string[] | undefined => {
     if (t.isIdentifier(root)) {
@@ -379,20 +384,34 @@ export function* classifyParsedJavaScriptElectronBindingsSteps(
       if (binding === undefined) return undefined;
       let exported = exportsByBinding.get(binding.bindingId);
       if (exported === undefined) {
-        exported = electronExport(binding, state);
+        exported = electronExport(binding, state, interop);
         exportsByBinding.set(binding.bindingId, exported);
       }
-      return exported ?? undefined;
+      return collectedWrites && interop.invalidated(binding)
+        ? undefined
+        : (exported ?? undefined);
     }
     const origin = semanticRequireOrigin(root, state)?.origin;
     return origin !== undefined && ELECTRON_MODULE.test(origin.specifier)
       ? electronExportPath(origin.importedPath)
       : undefined;
   };
-  const writes = yield* collectElectronMemberWritesSteps(
+  yield* collectJavaScriptIdentityWritesSteps(
     file.program,
-    rootExport,
+    (root, kind) => {
+      if (kind === "opaque-call") return interop.opaqueMutationPath(root);
+      const exported = kind === "binding" ? undefined : rootExport(root);
+      return exported === undefined
+        ? interop.intrinsicPath(root)
+        : ["electron", ...exported];
+    },
+    interop.intrinsicPath,
+    (node, path) => {
+      if (path[0] === "electron") writes.retain(path);
+      else interop.retainWrite(node, path);
+    },
   );
+  collectedWrites = true;
   yield* traverseJavaScriptAstSteps(file.program, {
     enter: (node) => {
       if (
@@ -403,7 +422,10 @@ export function* classifyParsedJavaScriptElectronBindingsSteps(
         return;
       const { root, members } = electronMemberPath(node.callee);
       const exported = rootExport(root);
-      if (exported !== undefined && !writes.covers([...exported, ...members]))
+      if (
+        exported !== undefined &&
+        !writes.covers(["electron", ...exported, ...members])
+      )
         facts.set(root.start ?? -1, exported);
     },
   });
@@ -415,10 +437,14 @@ export function* classifyParsedJavaScriptElectronBindingsSteps(
 const electronExport = (
   binding: JavaScriptSemanticBindingState,
   state: JavaScriptSemanticAnalysisState,
+  interop: ReturnType<typeof createSemanticModuleInterop>,
 ): readonly string[] | null => {
-  if (binding.definitions.some(({ kind }) => kind === "assignment"))
-    return null;
-  const directOrigin = bindingOrigin(binding, state);
+  const reassigned = binding.definitions.some(
+    ({ kind }) => kind === "assignment",
+  );
+  const converted = reassigned ? interop.origin(binding) : undefined;
+  if (reassigned && converted === undefined) return null;
+  const directOrigin = converted?.origin ?? bindingOrigin(binding, state);
   const [initializer] = binding.initializers;
   if (
     directOrigin === undefined &&
