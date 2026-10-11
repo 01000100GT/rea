@@ -3,7 +3,7 @@ import { digestSchema } from "../digests.js";
 import { analyzeJavaScriptApplicationInputSchema } from "./javascriptApplicationAnalysis.js";
 import { localPathStringSchema } from "../localPath.js";
 
-/** Recover derived readable modules from one explicitly selected local script. */
+/** Recover derived readable modules from explicitly selected local scripts. */
 export const javascriptRecoveryInputSchema = z.strictObject({
   path: localPathStringSchema.describe(
     "Absolute path to a UTF-8 JavaScript file; never executed",
@@ -13,7 +13,7 @@ export const javascriptRecoveryInputSchema = z.strictObject({
     .max(16)
     .optional()
     .describe(
-      "Additional absolute UTF-8 JavaScript files concatenated into the same recovery snapshot, in order, after path; lets a code-split bundle be recovered as one input so modules can resolve imports across chunks",
+      "Additional absolute UTF-8 JavaScript files recovered together with path; each is snapshotted separately so imports can resolve across related chunks. All inputs share a 64 MiB total budget",
     ),
   output_directory: localPathStringSchema.describe(
     "Absolute absent output directory; parent must exist",
@@ -43,12 +43,15 @@ const rangeSchema = z.strictObject({
   end: z.number().int().nonnegative(),
 });
 
+const sourceSchema = fileSchema.extend({
+  snapshot_path: z.string().min(1),
+  published_copy: fileSchema,
+});
+
 /** Complete published artifacts and exact producer provenance for source recovery. */
 export const javascriptRecoveryResultSchema = z.strictObject({
-  source: fileSchema.extend({
-    snapshot_path: z.string().min(1),
-    published_copy: fileSchema,
-  }),
+  source: sourceSchema,
+  additional_sources: z.array(sourceSchema).optional(),
   engine: z.strictObject({
     id: z.string().min(1),
     version: z.string().min(1),

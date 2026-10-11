@@ -137,6 +137,7 @@ describe("JavaScript recovery workflow", () => {
     });
     for (const additional_paths of [
       [artifact.path],
+      ["/tmp/dir/../bundle.js", "/tmp/bundle.js"],
       ["/tmp/shared.js", "/tmp/shared.js"],
     ]) {
       const result = await service.recover({
