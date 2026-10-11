@@ -346,7 +346,9 @@ Known Object/Reflect mutators remain recognizable through literal destructuring
 of intrinsic objects and stable bound-function aliases. Calls retain bound
 argument prefixes through `call`, `apply`, and `Reflect.apply`; unexamined
 targets remain unresolved. Creating an unused binding does not itself mutate
-an intrinsic. Variable redeclarations retain a single unconditional initializer
+an intrinsic. Generic `Function.prototype.call` and `apply` follow the callable
+receiver, including a bound receiver; rebinding does not replace an earlier
+bound receiver. Variable redeclarations retain a single unconditional initializer
 when they introduce no assignment or second initializer.
 Stable identifier chains to fresh object, array, function,
 undecorated class or RegExp syntax keep those targets separate from intrinsic

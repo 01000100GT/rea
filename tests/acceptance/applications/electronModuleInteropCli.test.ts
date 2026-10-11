@@ -10,6 +10,37 @@ import { connectLocalToolsMcp } from "../../fixtures/localToolsMcp.js";
 import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
 import { cliTest } from "../../support/cli/cliFixture.js";
 
+const writePoisonedModules = async (root: string): Promise<void> => {
+  for (const [name, mutation] of [
+    ["poisoned.cjs", "({Object} = replacements);"],
+    [
+      "projected.cjs",
+      'const {defineProperty:change} = Object; change(Object,"create",{value:customCreate});',
+    ],
+    [
+      "decorated.cjs",
+      '@(() => Object) class metadata {}; Object.defineProperty(metadata,"create",{value:customCreate});',
+    ],
+    [
+      "bound.cjs",
+      'const change = Object.defineProperty.bind(null,Object,"create"); change({value:customCreate});',
+    ],
+    [
+      "uncurried.cjs",
+      'const change = Function.prototype.call.bind(Object.defineProperty,null,Object,"create"); change({value:customCreate});',
+    ],
+  ] as const)
+    await writeFile(
+      join(root, name),
+      `${mutation}
+     ${ROLLDOWN_MODULE_INTEROP}
+     let poisoned = require("electron");
+     poisoned = __toESM(poisoned, 1);
+     new poisoned.BrowserWindow({});
+     throw new Error("must not execute poisoned source");`,
+    );
+};
+
 cliTest.for(["CLI", "stdio MCP"] as const)(
   "retains converted Electron windows and preload evidence through %s",
   async (surface, { cli }) => {
@@ -22,34 +53,13 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       join(root, "preload.js"),
       'throw new Error("must stay inert");',
     );
-    for (const [name, mutation] of [
-      ["poisoned.cjs", "({Object} = replacements);"],
-      [
-        "projected.cjs",
-        'const {defineProperty:change} = Object; change(Object,"create",{value:customCreate});',
-      ],
-      [
-        "decorated.cjs",
-        '@(() => Object) class metadata {}; Object.defineProperty(metadata,"create",{value:customCreate});',
-      ],
-      [
-        "bound.cjs",
-        'const change = Object.defineProperty.bind(null,Object,"create"); change({value:customCreate});',
-      ],
-    ] as const)
-      await writeFile(
-        join(root, name),
-        `${mutation}
-       ${ROLLDOWN_MODULE_INTEROP}
-       let poisoned = require("electron");
-       poisoned = __toESM(poisoned, 1);
-       new poisoned.BrowserWindow({});
-       throw new Error("must not execute poisoned source");`,
-      );
+    await writePoisonedModules(root);
     const source = `const metadata = {};
       Object.defineProperty(metadata,"x",{value:1});
       const decorateMetadata = Object.defineProperty.bind(null,metadata,"bound");
       decorateMetadata({value:1});
+      const decorateViaCall = Function.prototype.call.bind(Object.defineProperty);
+      decorateViaCall(null,metadata,"uncurried",{value:1});
       const localFunction = () => {};
       Object.defineProperty(localFunction,"x",{value:1});
       const localClass = class {};
@@ -86,6 +96,7 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       require("./projected.cjs");
       require("./decorated.cjs");
       require("./bound.cjs");
+      require("./uncurried.cjs");
       throw new Error("must not execute main");
     `;
     await writeFile(join(root, "main.cjs"), source);
@@ -112,7 +123,7 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       preload_entrypoints: 1,
     });
     expect(result.statistics.parse_failures).toBe(0);
-    expect(result.statistics.parsed_javascript_files).toBe(6);
+    expect(result.statistics.parsed_javascript_files).toBe(7);
     const windows = result.graph.nodes.filter(
       ({ kind }) => kind === "browser-window",
     );

@@ -506,6 +506,52 @@ describe("Electron module interop capture and scope", () => {
   });
 });
 
+describe("Electron module interop generic invocations", () => {
+  it.each([
+    'const change = Function.prototype.call.bind(Object.defineProperty); change(null,Object,"create",{value:customCreate});',
+    'const call = Function.prototype.call; const change = call.bind(Object.defineProperty); change(null,Object,"create",{value:customCreate});',
+    'const change = Function.prototype.call.bind(Object.defineProperty,null,Object,"create"); change({value:customCreate});',
+    'Function.prototype.call.call(Object.defineProperty,null,Object,"create",{value:customCreate});',
+    'Function.prototype.call.apply(Object.defineProperty,[null,Object,"create",{value:customCreate}]);',
+    'Reflect.apply(Function.prototype.call,Object.defineProperty,[null,Object,"create",{value:customCreate}]);',
+    'const change = Function.prototype.apply.bind(Object.defineProperty); change(null,[Object,"create",{value:customCreate}]);',
+    'Function.prototype.apply.call(Object.defineProperty,null,[Object,"create",{value:customCreate}]);',
+    'Reflect.apply(Function.prototype.apply,Object.defineProperty,[null,[Object,"create",{value:customCreate}]]);',
+    'const first = Function.prototype.call.bind(Object.defineProperty,null,Object,"create"); const change = first.bind(fake); change({value:customCreate});',
+    "const change = Function.prototype.call.bind(Object.defineProperty); change(null,...args);",
+    "const change = Function.prototype.apply.bind(Object.defineProperty); change(null,args);",
+    'const change = Function.prototype.call.bind(Object.defineProperty,null,...args); change(metadata,"x",{value:1});',
+    'Function.prototype.call.call.call(Object.defineProperty,null,Object,"create",{value:customCreate});',
+    'Object.defineProperty.call.call(Object.defineProperty,null,Object,"create",{value:customCreate});',
+    'Function.prototype.apply.apply(Object.defineProperty,[null,[Object,"create",{value:customCreate}]]);',
+    'const change = Object.defineProperty.call.bind(Object.defineProperty); change(null,Object,"create",{value:customCreate});',
+    'const change = Function.prototype.call.call.bind(Object.defineProperty,null,Object,"create"); change({value:customCreate});',
+  ])("follows the callable receiver of a generic invocation: %s", (write) => {
+    expect(
+      analyzeJavaScriptStaticSource(
+        `${write}\n${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP} ${WINDOW}`,
+      ).electron.browser_windows,
+    ).toEqual([]);
+  });
+
+  it.each([
+    'const change = Function.prototype.call.bind(Object.defineProperty); change(null,metadata,"x",{value:1});',
+    'const change = Function.prototype.call.bind(Object.defineProperty,null,metadata,"x"); change({value:1});',
+    'Function.prototype.call.call(Object.defineProperty,null,metadata,"x",{value:1});',
+    'const change = Function.prototype.apply.bind(Object.defineProperty); change(null,[metadata,"x",{value:1}]);',
+    'Reflect.apply(Function.prototype.apply,Object.defineProperty,[null,[metadata,"x",{value:1}]]);',
+    'Function.prototype.call.call.call(Object.defineProperty,null,metadata,"x",{value:1});',
+    'Function.prototype.apply.apply(Object.defineProperty,[null,[metadata,"x",{value:1}]]);',
+    'const change = Object.defineProperty.call.bind(Object.defineProperty); change(null,metadata,"x",{value:1});',
+  ])("preserves fresh targets through a generic invocation: %s", (write) => {
+    expect(
+      analyzeJavaScriptStaticSource(
+        `const metadata = {}; ${write}\n${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP} ${WINDOW}`,
+      ).electron.browser_windows,
+    ).toHaveLength(1);
+  });
+});
+
 describe("Electron module interop bound mutators", () => {
   it.each([
     'const change = Object.defineProperty.bind(null); change(Object,"create",{value:customCreate});',
@@ -519,9 +565,9 @@ describe("Electron module interop bound mutators", () => {
     'const metadata = {}; Object.defineProperty.call(...args,metadata,"x",{value:1});',
     'const metadata = {}; Object.defineProperty.apply(...args,[metadata,"x",{value:1}]);',
     'const change = Reflect.set.bind(null,Object,"create"); change(customCreate);',
-    'const change = Object.defineProperty.call; change(null,Object,"create",{value:customCreate});',
-    'const {apply:change} = Object.defineProperty; change(null,[Object,"create",{value:customCreate}]);',
-    'const change = Reflect.apply.call; change(null,Object.defineProperty,null,[Object,"create",{value:customCreate}]);',
+    'const change = Object.defineProperty.call; change.call(Object.defineProperty,null,Object,"create",{value:customCreate});',
+    'const {apply:change} = Object.defineProperty; change.call(Object.defineProperty,null,[Object,"create",{value:customCreate}]);',
+    'const change = Reflect.apply.call; change.call(Reflect.apply,null,Object.defineProperty,null,[Object,"create",{value:customCreate}]);',
   ])("rejects intrinsic writes through a bound mutator: %s", (write) => {
     expect(
       analyzeJavaScriptStaticSource(
@@ -537,8 +583,8 @@ describe("Electron module interop bound mutators", () => {
     'const change = Object.defineProperty.bind(null,Object,"create");',
     'Object.defineProperty.call(null,metadata,"x",{value:1});',
     'Object.defineProperty.apply(null,[metadata,"x",{value:1}]);',
-    'const change = Object.defineProperty.call; change(null,metadata,"x",{value:1});',
-    'const {apply:change} = Object.defineProperty; change(null,[metadata,"x",{value:1}]);',
+    'const change = Object.defineProperty.call; change.call(Object.defineProperty,null,metadata,"x",{value:1});',
+    'const {apply:change} = Object.defineProperty; change.call(Object.defineProperty,null,[metadata,"x",{value:1}]);',
   ])("keeps a fresh bound target or unused binding separate: %s", (write) => {
     expect(
       analyzeJavaScriptStaticSource(

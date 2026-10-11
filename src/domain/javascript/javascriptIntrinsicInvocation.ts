@@ -41,20 +41,34 @@ export const resolveJavaScriptIntrinsicInvocation = (
   const visited = new Set<string>();
   let callee: t.Node = node.callee;
   let arguments_: JavaScriptIntrinsicInvocation["arguments"] = node.arguments;
+  let thisArgument: t.Node | undefined;
+  let explicitReceiver = false;
   for (;;) {
     callee = unwrapJavaScriptExpression(callee).node;
-    let path = intrinsicPath(callee);
-    // Static projections can capture call/apply themselves as aliases.
-    while (path !== undefined && path.length > 3) {
-      const method = path.at(-1);
-      if (method !== "call" && method !== "apply") break;
+    const path = intrinsicPath(callee);
+    const method =
+      path !== undefined && path.length > 3 ? path.at(-1) : undefined;
+    if (method === "call" || method === "apply") {
+      // These properties hold generic function values. Their receiver selects
+      // the callable; property-chain depth does not consume more arguments.
+      const callable: t.Node | undefined = explicitReceiver
+        ? thisArgument
+        : t.isMemberExpression(callee) || t.isOptionalMemberExpression(callee)
+          ? callee.object
+          : undefined;
+      if (!t.isExpression(callable)) return undefined;
+      callee = callable;
+      thisArgument = arguments_?.[0];
+      explicitReceiver = true;
       arguments_ = invocationArguments(method, arguments_);
-      path = path.slice(0, -1);
+      continue;
     }
     if (path?.join(".") === "intrinsic.Reflect.apply") {
       const callable = arguments_?.[0];
       if (!t.isExpression(callable)) return undefined;
       callee = callable;
+      thisArgument = arguments_?.[1];
+      explicitReceiver = true;
       arguments_ = arrayArguments(arguments_?.[2]);
       continue;
     }
@@ -66,6 +80,8 @@ export const resolveJavaScriptIntrinsicInvocation = (
       );
       if (method === "call" || method === "apply") {
         callee = callee.object;
+        thisArgument = arguments_?.[0];
+        explicitReceiver = true;
         arguments_ = invocationArguments(method, arguments_);
         continue;
       }
@@ -79,6 +95,9 @@ export const resolveJavaScriptIntrinsicInvocation = (
       )
         return undefined;
       const prefix = callee.arguments.slice(1);
+      // An inner bind owns the receiver even when the result is rebound.
+      thisArgument = callee.arguments[0];
+      explicitReceiver = true;
       arguments_ = t.isSpreadElement(callee.arguments[0])
         ? undefined
         : prefix.length === 0
