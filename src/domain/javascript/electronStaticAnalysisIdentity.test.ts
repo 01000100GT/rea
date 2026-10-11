@@ -143,4 +143,30 @@ describe("Electron API identity", () => {
       analysis.electron.browser_windows.map(({ preload_path }) => preload_path),
     ).toEqual(["./const.js", "./let.js", "./destructured.js"]);
   });
+
+  it("preserves one initializer across variable redeclarations without accepting writes", () => {
+    const analysis = analyzeJavaScriptStaticSource(`
+      var electron;
+      var electron = require("electron");
+      var electron;
+      new electron.BrowserWindow({webPreferences:{preload:"./redeclared.js"}});
+
+      var replaced;
+      var replaced = require("electron");
+      replaced = fake;
+      new replaced.BrowserWindow({webPreferences:{preload:"./replaced.js"}});
+
+      var initializedTwice = require("electron");
+      var initializedTwice = fake;
+      new initializedTwice.BrowserWindow({});
+
+      var conditional;
+      if (flag) { var conditional = require("electron"); }
+      new conditional.BrowserWindow({});
+    `);
+
+    expect(
+      analysis.electron.browser_windows.map(({ preload_path }) => preload_path),
+    ).toEqual(["./redeclared.js"]);
+  });
 });

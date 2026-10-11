@@ -32,6 +32,10 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
         "decorated.cjs",
         '@(() => Object) class metadata {}; Object.defineProperty(metadata,"create",{value:customCreate});',
       ],
+      [
+        "bound.cjs",
+        'const change = Object.defineProperty.bind(null,Object,"create"); change({value:customCreate});',
+      ],
     ] as const)
       await writeFile(
         join(root, name),
@@ -44,6 +48,8 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       );
     const source = `const metadata = {};
       Object.defineProperty(metadata,"x",{value:1});
+      const decorateMetadata = Object.defineProperty.bind(null,metadata,"bound");
+      decorateMetadata({value:1});
       const localFunction = () => {};
       Object.defineProperty(localFunction,"x",{value:1});
       const localClass = class {};
@@ -59,7 +65,9 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       electron = __toESM(electron, 1);
       new electron.BrowserWindow({webPreferences:{preload:"./preload.js"}});
       new electron.BrowserWindow({webPreferences:{preload:runtimePath}});
-      const direct = require("electron");
+      var direct;
+      var direct = require("electron");
+      var direct;
       new direct.BrowserWindow({});
       const fresh = __toESM(require("electron"), 1);
       new fresh.BrowserWindow({});
@@ -77,6 +85,7 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       require("./poisoned.cjs");
       require("./projected.cjs");
       require("./decorated.cjs");
+      require("./bound.cjs");
       throw new Error("must not execute main");
     `;
     await writeFile(join(root, "main.cjs"), source);
@@ -103,7 +112,7 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       preload_entrypoints: 1,
     });
     expect(result.statistics.parse_failures).toBe(0);
-    expect(result.statistics.parsed_javascript_files).toBe(5);
+    expect(result.statistics.parsed_javascript_files).toBe(6);
     const windows = result.graph.nodes.filter(
       ({ kind }) => kind === "browser-window",
     );

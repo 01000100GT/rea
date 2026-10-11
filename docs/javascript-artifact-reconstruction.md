@@ -343,7 +343,12 @@ writes inside directly invoked local functions, are not evaluated. Other
 reassignments, dynamic selections, and visibly overwritten namespace members
 are unresolved.
 Known Object/Reflect mutators remain recognizable through literal destructuring
-of intrinsic objects. Stable identifier chains to fresh object, array, function,
+of intrinsic objects and stable bound-function aliases. Calls retain bound
+argument prefixes through `call`, `apply`, and `Reflect.apply`; unexamined
+targets remain unresolved. Creating an unused binding does not itself mutate
+an intrinsic. Variable redeclarations retain a single unconditional initializer
+when they introduce no assignment or second initializer.
+Stable identifier chains to fresh object, array, function,
 undecorated class or RegExp syntax keep those targets separate from intrinsic
 objects when initialized before use; opaque, decorated, reassigned or
 not-yet-initialized targets remain unresolved. Writes during class initialization

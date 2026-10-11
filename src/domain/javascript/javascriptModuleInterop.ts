@@ -16,6 +16,7 @@ import {
   javaScriptAstChildKeys,
 } from "./javascriptSemanticTraversal.js";
 import { electronMemberPath } from "./javascriptElectronMemberWrites.js";
+import { resolveJavaScriptIntrinsicInvocation } from "./javascriptIntrinsicInvocation.js";
 import { SemanticPropertyPathCoverage } from "./javascriptSemanticPropertyPaths.js";
 import {
   readExactJavaScriptLiteral,
@@ -441,6 +442,8 @@ export const createSemanticModuleInterop = (
     origin,
     callOrigin,
     intrinsicPath,
+    intrinsicInvocation: (node: t.CallExpression | t.OptionalCallExpression) =>
+      resolveJavaScriptIntrinsicInvocation(node, state, intrinsicPath),
     isFreshObject,
     opaqueMutationPath,
     retainWrite: (node: t.Node, path: readonly (string | null)[]) => {

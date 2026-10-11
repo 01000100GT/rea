@@ -505,3 +505,45 @@ describe("Electron module interop capture and scope", () => {
     expect(analysis.electron.browser_windows).toHaveLength(1);
   });
 });
+
+describe("Electron module interop bound mutators", () => {
+  it.each([
+    'const change = Object.defineProperty.bind(null); change(Object,"create",{value:customCreate});',
+    'const change = Object.defineProperty.bind(null,Object,"create"); change({value:customCreate});',
+    'const first = Object.defineProperty.bind(null,Object); const change = first; change("create",{value:customCreate});',
+    'const change = Object.defineProperty.bind(null,Object); change.call(null,"create",{value:customCreate});',
+    'const change = Object.defineProperty.bind(null,Object); change.apply(null,["create",{value:customCreate}]);',
+    'const change = Object.defineProperty.bind(null,Object); Reflect.apply(change,null,["create",{value:customCreate}]);',
+    'Object.defineProperty.bind(null,Object,"create")({value:customCreate});',
+    'const change = Object.defineProperty.bind(null,...args); change(Object,"create",{value:customCreate});',
+    'const metadata = {}; Object.defineProperty.call(...args,metadata,"x",{value:1});',
+    'const metadata = {}; Object.defineProperty.apply(...args,[metadata,"x",{value:1}]);',
+    'const change = Reflect.set.bind(null,Object,"create"); change(customCreate);',
+    'const change = Object.defineProperty.call; change(null,Object,"create",{value:customCreate});',
+    'const {apply:change} = Object.defineProperty; change(null,[Object,"create",{value:customCreate}]);',
+    'const change = Reflect.apply.call; change(null,Object.defineProperty,null,[Object,"create",{value:customCreate}]);',
+  ])("rejects intrinsic writes through a bound mutator: %s", (write) => {
+    expect(
+      analyzeJavaScriptStaticSource(
+        `${write}\n${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP} ${WINDOW}`,
+      ).electron.browser_windows,
+    ).toEqual([]);
+  });
+
+  it.each([
+    'const change = Object.defineProperty.bind(null); change(metadata,"x",{value:1});',
+    'const change = Object.defineProperty.bind(null,metadata,"x"); change({value:1});',
+    'const first = Object.defineProperty.bind(null,metadata); const change = first.bind(null,"x"); change({value:1});',
+    'const change = Object.defineProperty.bind(null,Object,"create");',
+    'Object.defineProperty.call(null,metadata,"x",{value:1});',
+    'Object.defineProperty.apply(null,[metadata,"x",{value:1}]);',
+    'const change = Object.defineProperty.call; change(null,metadata,"x",{value:1});',
+    'const {apply:change} = Object.defineProperty; change(null,[metadata,"x",{value:1}]);',
+  ])("keeps a fresh bound target or unused binding separate: %s", (write) => {
+    expect(
+      analyzeJavaScriptStaticSource(
+        `const metadata = {}; ${write}\n${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP} ${WINDOW}`,
+      ).electron.browser_windows,
+    ).toHaveLength(1);
+  });
+});

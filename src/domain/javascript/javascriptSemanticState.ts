@@ -77,6 +77,7 @@ export interface JavaScriptSemanticAnalysisState {
 
 /**
  * Return one unconditional source initializer for a declared lexical binding.
+ * Repeated variable declarations without another initializer do not write it.
  * This establishes a stable source fact only; it does not prove immutability or
  * that the declaration has executed at a particular program point.
  */
@@ -87,10 +88,10 @@ export const semanticStableInitializer = (
   const [initializer] = binding?.initializers ?? [];
   const [definition] = binding?.definitions ?? [];
   return binding !== undefined &&
-    binding.definitions.length === 1 &&
-    (definition?.kind === "variable" ||
-      definition?.kind === "function" ||
-      definition?.kind === "class") &&
+    ((definition?.kind === "variable" &&
+      binding.definitions.every(({ kind }) => kind === "variable")) ||
+      (binding.definitions.length === 1 &&
+        (definition?.kind === "function" || definition?.kind === "class"))) &&
     binding.initializers.length === 1 &&
     initializer !== undefined &&
     !state.conditionalInitializers.has(initializer.node)

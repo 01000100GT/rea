@@ -410,7 +410,7 @@ export function* classifyParsedJavaScriptElectronBindingsSteps(
         ? interop.intrinsicPath(root)
         : ["electron", ...exported];
     },
-    interop.intrinsicPath,
+    interop.intrinsicInvocation,
     interop.isFreshObject,
     (node, path) => {
       if (path[0] === "electron") writes.retain(path);
