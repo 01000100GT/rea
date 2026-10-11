@@ -63,12 +63,8 @@ export class CodeModeBridge {
   }
 
   /** Search exposes original schemas and generated input types on demand. */
-  async search({
-    query = "",
-    names = [],
-    schemas = true,
-    output_schemas = false,
-  }) {
+  async search({ query = "", names = [], schemas, output_schemas = false }) {
+    const includeSchemas = schemas ?? (names.length > 0 || output_schemas);
     const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
     const selected = this.upstream.catalog.filter((tool) =>
       names.length
@@ -98,7 +94,7 @@ export class CodeModeBridge {
       .map(({ tool }) => ({ name: tool.name, description: tool.description }));
     const tools = [];
     for (const tool of selected) {
-      const inputType = schemas
+      const inputType = includeSchemas
         ? await compile(tool.inputSchema, `${tool.name}_Input`, {
             bannerComment: "",
             format: false,
@@ -106,7 +102,7 @@ export class CodeModeBridge {
           })
         : undefined;
       tools.push(
-        schemas
+        includeSchemas
           ? {
               ...tool,
               ...(!output_schemas ? { outputSchema: undefined } : {}),
@@ -322,11 +318,11 @@ export function createBridgeServer(bridge) {
     "rea_search",
     {
       description:
-        "Discover original REA tools by all query words or exact names. Empty query lists the complete catalog. Input schemas are exact upstream MCP schemas with generated TypeScript. Request output_schemas=true only when needed. catalog_sha256 hashes the upstream SDK tool catalog, not REA server_identity.catalog.digests. Code Mode calls tools.<name>(original_arguments); results are original MCP envelopes, parsed by json(reply).",
+        "Discover original REA tools. Start with one domain word, e.g. query=android; query words must all occur. Query/empty discovery defaults to names and descriptions. Then supply all selected exact names together to obtain original input schemas and TypeScript. schemas=true/false overrides this choice. Request output_schemas=true only when needed. catalog_sha256 hashes the SDK catalog, not REA server_identity.catalog.digests. Code calls tools.<name>(original_arguments); json(reply) parses the original MCP value.",
       inputSchema: z.strictObject({
         query: z.string().default(""),
         names: z.array(z.string()).default([]),
-        schemas: z.boolean().default(true),
+        schemas: z.boolean().optional(),
         output_schemas: z.boolean().default(false),
       }),
       annotations: {

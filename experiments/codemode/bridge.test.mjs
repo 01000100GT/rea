@@ -50,6 +50,18 @@ test("discovery preserves exact current REA schemas and names", async () => {
     all.tools.map((tool) => tool.name),
     upstream.catalog.map((tool) => tool.name),
   );
+  const query = await bridge.search({ query: "android" });
+  assert.ok(query.tools.length > 0);
+  assert.ok(query.tools.every((tool) => tool.inputSchema === undefined));
+  const querySchemas = await bridge.search({ query: "android", schemas: true });
+  assert.ok(querySchemas.tools.every((tool) => tool.inputSchema !== undefined));
+  const outputRequested = await bridge.search({
+    query: "android",
+    output_schemas: true,
+  });
+  assert.ok(
+    outputRequested.tools.every((tool) => tool.outputSchema !== undefined),
+  );
   const missed = await bridge.search({
     query: "android impossible_query_word",
   });

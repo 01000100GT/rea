@@ -172,3 +172,40 @@ its queued successor release deferred guest handles before runtime disposal.
 This test does not simulate or establish new provider behavior.
 
 The bridge remains an experiment and has not changed any published REA contract.
+
+## Existing-client and managed follow-up
+
+The same Android v3 question with normal MCP, without the experimental Code Mode
+feature flags, passes all six fact assertions and reference checks: 75.117 seconds,
+103471 API input tokens (73728 cached), 1538 output tokens and three original MCP
+calls. This is the strongest measured Android baseline so far. Its wall time also
+includes a short boundary-test overlap, so it is not a controlled latency ratio.
+The installed model catalog requests code-mode-only tool delivery; flag settings
+and nested MCP events alone cannot establish the internal executor's behavior.
+
+The first real ShareX managed-agent comparison uses the same question with Terra
+high and identical provider settings. Normal MCP takes 81.578 seconds, 217573 input
+tokens (186368 cached), 2647 output tokens and two original calls. The bridge takes
+96.930 seconds, 218089 input tokens (155904 cached), 3247 output tokens, four
+searches and two executions. Its first script uses an expression instead of the
+required async-body `return`, yielding no projection; it repeats both operations.
+Query discovery now defaults to lightweight names/descriptions, while exact-name
+discovery supplies input schemas. This run still requested full output schemas
+individually and therefore does not establish an efficiency gain from that change.
+
+Both answers match all seven requested managed fact groups, including exact target
+SHA-256, assembly/module identities, classification evidence, framework, declared
+ModuleRef/PInvoke arrays and coverage. Those empty arrays concern ShareX.dll only.
+The bridge passes cited-reference verification. Codex truncated the original
+managed-artifact response in its normal-MCP JSONL at roughly one MiB, leaving an
+invalid JSON fragment; the automated grader cannot validate that one reference
+from a complete producer envelope. Its reference-failure result is retained,
+despite the matching ID being visible in the transcript prefix and replay. This
+is a verification limitation, not a demonstrated fabricated ID.
+
+The runner now handles SIGTERM so copied trial credentials are removed during a
+resource abort. A controlled non-model launcher received owned-scope SIGTERM,
+exited 143 and left no trial profile while preserving the dummy source auth file.
+This verifies credential cleanup only. The eleven actual stdio tests pass after
+the adaptive discovery change, with a sampled peak of 1365106688 bytes, 42 tasks
+and zero observed memory/task limit events.

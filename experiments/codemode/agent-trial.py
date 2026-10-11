@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import tempfile
 import time
@@ -22,6 +23,11 @@ def main():
     parser.add_argument('--codex', default='/usr/bin/codex')
     parser.add_argument('--providers', type=Path)
     args = parser.parse_args()
+    def terminate(signum, _frame):
+        # The outer resource scope terminates descendants together. Ensure the
+        # runner's copied credentials are also removed on a resource abort.
+        raise SystemExit(128 + signum)
+    signal.signal(signal.SIGTERM, terminate)
     repository = Path(__file__).resolve().parents[2]
     experiment = Path(__file__).resolve().parent
     node = shutil.which('node')
@@ -108,7 +114,9 @@ def main():
                  'inspect_android_package', 'search_android_classes',
                  'inspect_android_class', 'inspect_android_method',
                  'inspect_firmware_regions', 'inspect_managed_artifact',
-                 'inspect_managed_member', 'analyze_function', 'close_binary']:
+                 'inspect_managed_members', 'inspect_managed_native_boundaries',
+                 'inspect_artifact', 'inspect_wasm_artifact',
+                 'resolve_containing_procedure', 'analyze_function', 'close_binary']:
         config += '[mcp_servers.rea.tools.' + tool + ']\napproval_mode = "approve"\n'
     try:
         if source_auth.exists():

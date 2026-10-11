@@ -27,7 +27,10 @@ node bridge.mjs /absolute/path/to/node /absolute/path/to/rea/scripts/rea.mjs mcp
 Register that command as a separate, temporary MCP server for a trial. Existing
 REA registrations keep their original tools. `rea_search` accepts a query or exact
 names; use `schemas: false` for the complete lightweight name/description list.
-Input schemas are returned by default. Request `output_schemas: true` when a
+Query discovery returns names/descriptions by default; exact-name discovery
+returns original input schemas. `schemas` explicitly overrides that choice.
+Start with one domain word and request all selected exact names in one call.
+Request `output_schemas: true` when a
 result contract is needed; the original output schema is then returned unchanged.
 `catalog_sha256` identifies the SDK catalog; it must not be substituted for REA's
 `server_identity.catalog.digests` fields.
@@ -87,8 +90,9 @@ from single text content and count code explicitly. Measured findings and failur
 are recorded in [results.md](results.md).
 
 `agent-trial.py` runs a real local Codex CLI with a disposable account/config and
-one MCP registration. It copies authentication only, removes the profile on every
-exit, and retains JSONL events, the answer and measured API usage outside the repo.
+one MCP registration. It copies authentication only, removes the profile on normal
+completion, timeout and handled termination, and retains JSONL events, the answer
+and measured API usage outside the repo.
 It defaults to `gpt-5.6-terra` with high reasoning, as requested. Run one task under
 the resource wrapper:
 
@@ -104,12 +108,14 @@ provider settings. No ambient environment snapshot is retained. A configured fla
 or a model's `tool_mode` does not prove the model actually composed tools or
 filtered an intermediate result. Inspect the transcript, and mark accuracy as
 unassessed until the requested facts and source support have been reviewed.
-`grade-trial.py` currently checks the Android task against a successful real-provider
-replay and verifies that cited IDs appeared as producer or bridge audit IDs. This
-checks producer parity and reference existence; it does not prove Android runtime
-behavior or independent correctness of the decompiler. Its strict projection also
-checks the provider's overload index, so an otherwise supported method signature
-with that field omitted fails this stronger assertion.
+`grade-trial.py` checks Android (default) or `--task managed` against a successful
+real-provider replay and verifies cited producer or bridge audit IDs. It accepts
+JSON or one complete JSON fence, without repairing prose or partial values. This
+checks requested producer facts and reference existence, not runtime behavior or
+independent decompiler correctness. Unparseable result text is reported explicitly;
+IDs in a truncated JSON fragment cannot satisfy the automated reference check.
+The Android projection includes the provider's overload index, so a supported
+signature with that field omitted fails this stronger assertion.
 
 The supplied feedback is a research lead. Its Ghidra timing claim also changed
 auto-analysis options, so it does not isolate Code Mode's effect. Relevant primary
