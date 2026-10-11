@@ -233,6 +233,48 @@ describe("Electron module interop pattern writes", () => {
 });
 
 describe("Electron module interop capture and scope", () => {
+  it.each([
+    'const {defineProperty:change} = Object; change(Object,"create",{value:customCreate});',
+    "const objectAlias = Object; const {assign:change} = objectAlias; change(Object,{create:customCreate});",
+    'const {set:change} = Reflect; change(Object,"create",customCreate);',
+    'const {Object:{defineProperty:change}} = globalThis; change(Object,"create",{value:customCreate});',
+  ])("rejects a projected intrinsic mutator alias: %s", (write) => {
+    const source = `${write} ${ROLLDOWN_MODULE_INTEROP}
+      ${IMPORT} ${WRAP} ${WINDOW}
+    `.replaceAll("__toESM", "namespaceOf");
+    const analysis = analyzeJavaScriptStaticSource(source);
+    expect(analysis.parse_error_count).toBe(0);
+    expect(analysis.electron.browser_windows).toEqual([]);
+  });
+
+  it.each([
+    "const metadata = {};",
+    "const metadata = [];",
+    "const initial = {}; const metadata = initial;",
+  ])(
+    "keeps a fresh mutator target separate from intrinsic identity: %s",
+    (setup) => {
+      const analysis = analyzeJavaScriptStaticSource(`
+      ${setup} Object.defineProperty(metadata,"x",{value:1});
+      ${ROLLDOWN_MODULE_INTEROP} ${IMPORT} ${WRAP} ${WINDOW}
+    `);
+      expect(analysis.electron.browser_windows).toHaveLength(1);
+    },
+  );
+
+  it.each([
+    "const metadata = getMetadata();",
+    "let metadata = {}; metadata = Object;",
+    "Object.defineProperty(metadata,'x',{value:1}); const metadata = {};",
+    "const metadata = {intrinsic:Object}; Object.defineProperty(metadata.intrinsic,'create',{value:customCreate});",
+  ])("keeps an unproven mutator target unresolved: %s", (setup) => {
+    const analysis = analyzeJavaScriptStaticSource(`
+      ${setup} Object.defineProperty(metadata,"x",{value:1});
+      ${ROLLDOWN_MODULE_INTEROP} ${IMPORT} ${WRAP} ${WINDOW}
+    `);
+    expect(analysis.electron.browser_windows).toEqual([]);
+  });
+
   it("does not reject unrelated intrinsic property definitions", () => {
     const analysis = analyzeJavaScriptStaticSource(`
       Object.defineProperty(Object, "unrelated", {value:1});

@@ -50,6 +50,7 @@ export function* collectJavaScriptIdentityWritesSteps(
     kind: "binding" | "member" | "opaque-call",
   ) => readonly string[] | undefined,
   intrinsic: (node: t.Node) => readonly string[] | undefined,
+  freshObject: (node: t.Node) => boolean,
   retain: (node: t.Node, path: readonly (string | null)[]) => void,
 ): Generator<void> {
   const objectMutators = new Set([
@@ -115,10 +116,7 @@ export function* collectJavaScriptIdentityWritesSteps(
                 ? [stringValue(arguments_[1]) ?? null]
                 : [];
               retain(node, [...exported, ...members, ...key]);
-            } else if (
-              !t.isObjectExpression(target) &&
-              !t.isArrayExpression(target)
-            ) {
+            } else if (!freshObject(target)) {
               const scope = origin(node, "opaque-call");
               if (scope !== undefined) retain(node, scope);
             }

@@ -22,16 +22,25 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       join(root, "preload.js"),
       'throw new Error("must stay inert");',
     );
-    await writeFile(
-      join(root, "poisoned.cjs"),
-      `({Object} = replacements);
+    for (const [name, mutation] of [
+      ["poisoned.cjs", "({Object} = replacements);"],
+      [
+        "projected.cjs",
+        'const {defineProperty:change} = Object; change(Object,"create",{value:customCreate});',
+      ],
+    ] as const)
+      await writeFile(
+        join(root, name),
+        `${mutation}
        ${ROLLDOWN_MODULE_INTEROP}
        let poisoned = require("electron");
        poisoned = __toESM(poisoned, 1);
        new poisoned.BrowserWindow({});
        throw new Error("must not execute poisoned source");`,
-    );
-    const source = `${ROLLDOWN_MODULE_INTEROP}
+      );
+    const source = `const metadata = {};
+      Object.defineProperty(metadata,"x",{value:1});
+      ${ROLLDOWN_MODULE_INTEROP}
       let electron = require("electron");
       electron = __toESM(electron, 1);
       new electron.BrowserWindow({webPreferences:{preload:"./preload.js"}});
@@ -48,6 +57,7 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       new fake.BrowserWindow({});
       function decoy(electron) {new electron.BrowserWindow({});}
       require("./poisoned.cjs");
+      require("./projected.cjs");
       throw new Error("must not execute main");
     `;
     await writeFile(join(root, "main.cjs"), source);
@@ -74,7 +84,7 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       preload_entrypoints: 1,
     });
     expect(result.statistics.parse_failures).toBe(0);
-    expect(result.statistics.parsed_javascript_files).toBe(3);
+    expect(result.statistics.parsed_javascript_files).toBe(4);
     const windows = result.graph.nodes.filter(
       ({ kind }) => kind === "browser-window",
     );

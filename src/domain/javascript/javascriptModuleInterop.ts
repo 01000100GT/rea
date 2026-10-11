@@ -16,6 +16,7 @@ import {
 } from "./javascriptSemanticTraversal.js";
 import { electronMemberPath } from "./javascriptElectronMemberWrites.js";
 import { SemanticPropertyPathCoverage } from "./javascriptSemanticPropertyPaths.js";
+import { unwrapJavaScriptExpression } from "./javascriptAstValues.js";
 
 // Match the complete Rolldown runtime operations, including its live getters.
 // Names and formatting are irrelevant; lexical roles, operators and keys are not.
@@ -121,15 +122,39 @@ export const createSemanticModuleInterop = (
           : intrinsicBindings.get(binding.bindingId);
       if (cached !== undefined)
         return finish(cached === null ? undefined : [...cached, ...suffix]);
-      const initializer = stableInitializer(binding, state);
+      const initializer = stableBindingInitializer(binding, state);
       if (
         binding === undefined ||
         initializer === undefined ||
+        initializer.projection.some((segment) => segment === null) ||
         visited.has(binding.bindingId)
       )
         return finish(undefined);
       visited.add(binding.bindingId);
       pending.push({ id: binding.bindingId, suffixLength: suffix.length });
+      suffix = [...initializer.projection.map(String), ...suffix];
+      current = initializer.node;
+    }
+  };
+
+  const isFreshObject = (node: t.Node): boolean => {
+    const visited = new Set<string>();
+    let current = node;
+    for (;;) {
+      current = unwrapJavaScriptExpression(current).node;
+      if (t.isObjectExpression(current) || t.isArrayExpression(current))
+        return true;
+      if (!t.isIdentifier(current)) return false;
+      const binding = resolveSemanticBindingState(state, current, current.name);
+      const initializer = stableInitializer(binding, state);
+      if (
+        binding === undefined ||
+        initializer === undefined ||
+        (initializer.end ?? Infinity) >= (current.start ?? -1) ||
+        visited.has(binding.bindingId)
+      )
+        return false;
+      visited.add(binding.bindingId);
       current = initializer;
     }
   };
@@ -330,6 +355,7 @@ export const createSemanticModuleInterop = (
     origin,
     callOrigin,
     intrinsicPath,
+    isFreshObject,
     opaqueMutationPath,
     retainWrite: (node: t.Node, path: readonly (string | null)[]) => {
       const coverage = new SemanticPropertyPathCoverage();
@@ -388,14 +414,21 @@ const stableInitializer = (
   binding: JavaScriptSemanticBindingState | undefined,
   state: JavaScriptSemanticAnalysisState,
 ): t.Node | undefined => {
+  const initializer = stableBindingInitializer(binding, state);
+  return initializer?.projection.length === 0 ? initializer.node : undefined;
+};
+
+const stableBindingInitializer = (
+  binding: JavaScriptSemanticBindingState | undefined,
+  state: JavaScriptSemanticAnalysisState,
+): JavaScriptSemanticBindingState["initializers"][number] | undefined => {
   const [initializer] = binding?.initializers ?? [];
   return binding !== undefined &&
     binding.definitions.length === 1 &&
     binding.initializers.length === 1 &&
     initializer !== undefined &&
-    initializer.projection.length === 0 &&
     !state.conditionalInitializers.has(initializer.node)
-    ? initializer.node
+    ? initializer
     : undefined;
 };
 
