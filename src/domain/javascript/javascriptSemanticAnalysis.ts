@@ -32,6 +32,7 @@ import {
   resolveSemanticBindingFromScope,
   semanticBindingId,
   semanticScopeId,
+  semanticStableInitializer,
   semanticVariableScope,
 } from "./javascriptSemanticState.js";
 import {
@@ -205,13 +206,10 @@ export function* classifyParsedJavaScriptRpcClientRootsSteps(
       if (binding === undefined) return;
       let client = clients.get(binding.bindingId);
       if (client === undefined) {
-        const [initializer] = binding.initializers;
+        const initializer = semanticStableInitializer(binding, state);
         client =
           initializer !== undefined &&
           initializer.projection.length === 0 &&
-          binding.initializers.length === 1 &&
-          !binding.definitions.some(({ kind }) => kind === "assignment") &&
-          !state.conditionalInitializers.has(initializer.node) &&
           isJavaScriptRpcClientFactory(initializer.node);
         clients.set(binding.bindingId, client);
       }
@@ -453,14 +451,8 @@ const electronExport = (
   const converted = interop.origin(binding);
   if (reassigned && converted === undefined) return null;
   const directOrigin = converted?.origin ?? bindingOrigin(binding, state);
-  const [initializer] = binding.initializers;
-  if (
-    directOrigin === undefined &&
-    (initializer === undefined ||
-      binding.initializers.length !== 1 ||
-      state.conditionalInitializers.has(initializer.node))
-  )
-    return null;
+  const initializer = semanticStableInitializer(binding, state);
+  if (directOrigin === undefined && initializer === undefined) return null;
   const provenance =
     directOrigin === undefined
       ? evaluateSemanticProvenance(binding, state)
@@ -483,16 +475,8 @@ const bindingOrigin = (
     return binding.directOrigins.length === 1
       ? binding.directOrigins[0]
       : undefined;
-  const [initializer] = binding.initializers;
-  // A var/let declaration permits writes without proving one occurred.
-  // Require one unconditional initializer and no actual binding writes.
-  if (
-    initializer === undefined ||
-    binding.initializers.length !== 1 ||
-    binding.definitions.some(({ kind }) => kind === "assignment") ||
-    state.conditionalInitializers.has(initializer.node)
-  )
-    return undefined;
+  const initializer = semanticStableInitializer(binding, state);
+  if (initializer === undefined) return undefined;
   const origin = semanticRequireOrigin(initializer.node, state)?.origin;
   const projection = initializer.projection;
   return origin === undefined ||

@@ -326,15 +326,18 @@ remain unknown and make coverage partial.
 Electron API identity follows proven lexical module aliases. Namespace interop
 also preserves identity when the complete Rolldown helper operations, lexical
 roles, live getters, and captured intrinsic origins match, or when a stable
-helper simply returns its module parameter. Recognition uses structure rather
-than emitted names; other helper bodies and ambiguous runtime fallbacks remain
-unresolved. Captured function identities survive later global-property
-replacement. Visible intrinsic writes before capture or conversion are checked
-in their owning callable scope, including identifier leaves in nested/default/rest
+helper simply returns its module parameter. Harmless single-statement control
+blocks preserve recognition; added operations still require proof. Recognition
+uses structure rather than emitted names; other helper bodies and ambiguous
+runtime fallbacks remain unresolved. Captured function identities survive later global-property
+replacement, including copies through initialized aliases. Reads before an
+alias initializer remain unresolved. Visible intrinsic writes before capture or
+conversion are checked in their owning callable scope, including identifier leaves in nested/default/rest
 destructuring and loop targets. Property keys and shadowed local bindings do not
-overwrite the global intrinsic identity. Arbitrary cross-call side effects are not
-evaluated. Other reassignments, dynamic selections, and visibly overwritten
-namespace members are unresolved.
+overwrite the global intrinsic identity. Cross-call side effects, including
+writes inside directly invoked local functions, are not evaluated. Other
+reassignments, dynamic selections, and visibly overwritten namespace members
+are unresolved.
 Known Object/Reflect mutators remain recognizable through literal destructuring
 of intrinsic objects. Stable identifier chains to fresh object, array, function,
 undecorated class or RegExp syntax keep those targets separate from intrinsic

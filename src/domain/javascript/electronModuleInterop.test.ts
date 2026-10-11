@@ -7,6 +7,18 @@ const WINDOW =
   'new electron.BrowserWindow({webPreferences:{preload:"./preload.js"}});';
 const IMPORT = 'let electron = require("electron");';
 const WRAP = "electron = __toESM(electron, 1);";
+// The upstream runtime uses control-body braces that its bundled printer omits.
+// https://github.com/rolldown/rolldown/blob/22a0ab13732d81f2559ad2b7064b688699324889/crates/rolldown/src/runtime/runtime-base.js
+const BLOCK_MODULE_INTEROP = ROLLDOWN_MODULE_INTEROP.replace(
+  'if (from && typeof from === "object" || typeof from === "function") for',
+  'if (from && typeof from === "object" || typeof from === "function") { for',
+)
+  .replace(
+    "if (!__hasOwnProp.call(to, key) && key !== except) __defProp",
+    "if (!__hasOwnProp.call(to, key) && key !== except) { __defProp",
+  )
+  .replace("    });", "    });\n    }")
+  .replace("  return to;", "  }\n  return to;");
 
 describe("Electron module interop identity", () => {
   it("preserves named APIs through the released Rolldown namespace conversion", () => {
@@ -39,6 +51,25 @@ describe("Electron module interop identity", () => {
     expect(
       analyzeJavaScriptStaticSource(source).electron.browser_windows,
     ).toMatchObject([{ preload_path: "./preload.js" }]);
+  });
+
+  it("preserves the same operations through control-body braces", () => {
+    expect(
+      analyzeJavaScriptStaticSource(
+        `${BLOCK_MODULE_INTEROP}\n${IMPORT} ${WRAP} ${WINDOW}`,
+      ).electron.browser_windows,
+    ).toMatchObject([{ preload_path: "./preload.js" }]);
+  });
+
+  it("keeps additional operations inside a control block unresolved", () => {
+    const altered = BLOCK_MODULE_INTEROP.replace(
+      "{ __defProp",
+      "{ from = unrelated; __defProp",
+    );
+    expect(
+      analyzeJavaScriptStaticSource(`${altered}\n${IMPORT} ${WRAP} ${WINDOW}`)
+        .electron.browser_windows,
+    ).toEqual([]);
   });
 });
 
@@ -233,6 +264,50 @@ describe("Electron module interop pattern writes", () => {
 });
 
 describe("Electron module interop capture and scope", () => {
+  it.each([
+    "var captured = Object.defineProperty;",
+    "const {defineProperty:captured} = Object;",
+    "var first = Object.defineProperty; const captured = first;",
+  ])("retains the original function capture through %s", (capture) => {
+    const runtime = ROLLDOWN_MODULE_INTEROP.replace(
+      "__defProp = Object.defineProperty",
+      "__defProp = captured",
+    );
+    const analysis = analyzeJavaScriptStaticSource(`
+      ${capture} Object.defineProperty = custom;
+      ${runtime} ${IMPORT} ${WRAP} ${WINDOW}
+    `);
+    expect(analysis.electron.browser_windows).toHaveLength(1);
+  });
+
+  it.each(["var", "const"])(
+    "keeps an intrinsic alias read before its %s initializer unresolved",
+    (kind) => {
+      const runtime = ROLLDOWN_MODULE_INTEROP.replace(
+        "__defProp = Object.defineProperty",
+        "__defProp = later",
+      );
+      const analysis = analyzeJavaScriptStaticSource(`
+        ${runtime} ${kind} later = Object.defineProperty;
+        ${IMPORT} ${WRAP} ${WINDOW}
+      `);
+      expect(analysis.electron.browser_windows).toEqual([]);
+    },
+  );
+
+  it("requires the helper's intrinsic binding to initialize before conversion", () => {
+    const runtime = ROLLDOWN_MODULE_INTEROP.replace(
+      "var __defProp = Object.defineProperty;",
+      "",
+    );
+    const analysis = analyzeJavaScriptStaticSource(`
+      var captured = Object.defineProperty;
+      ${runtime} ${IMPORT} ${WRAP} ${WINDOW}
+      var __defProp = captured;
+    `);
+    expect(analysis.electron.browser_windows).toEqual([]);
+  });
+
   it.each([
     'const {defineProperty:change} = Object; change(Object,"create",{value:customCreate});',
     "const objectAlias = Object; const {assign:change} = objectAlias; change(Object,{create:customCreate});",

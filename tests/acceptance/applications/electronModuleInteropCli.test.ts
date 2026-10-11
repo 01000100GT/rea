@@ -50,7 +50,9 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       Object.defineProperty(localClass,"x",{value:1});
       const localRegExp = /local/;
       Object.defineProperty(localRegExp,"x",{value:1});
-      ${ROLLDOWN_MODULE_INTEROP}
+      const captured = Object.defineProperty;
+      Object.defineProperty = custom;
+      ${ROLLDOWN_MODULE_INTEROP.replace("__defProp = Object.defineProperty", "__defProp = captured")}
       let electron = require("electron");
       electron = __toESM(electron, 1);
       new electron.BrowserWindow({webPreferences:{preload:"./preload.js"}});

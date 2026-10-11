@@ -6,6 +6,7 @@ import {
   isUnshadowedGlobal,
   resolveSemanticBindingState,
   semanticScopeId,
+  semanticStableInitializer,
   type JavaScriptSemanticAnalysisState,
   type JavaScriptSemanticBindingState,
 } from "./javascriptSemanticState.js";
@@ -122,7 +123,7 @@ export const createSemanticModuleInterop = (
           : intrinsicBindings.get(binding.bindingId);
       if (cached !== undefined)
         return finish(cached === null ? undefined : [...cached, ...suffix]);
-      const initializer = stableBindingInitializer(binding, state);
+      const initializer = semanticStableInitializer(binding, state);
       if (
         binding === undefined ||
         initializer === undefined ||
@@ -133,6 +134,36 @@ export const createSemanticModuleInterop = (
       visited.add(binding.bindingId);
       pending.push({ id: binding.bindingId, suffixLength: suffix.length });
       suffix = [...initializer.projection.map(String), ...suffix];
+      current = initializer.node;
+    }
+  };
+
+  // A nominal alias path is sufficient for conservative mutation lookup, but
+  // helper proof also needs each read to follow initialization. An alias copy
+  // retains the earlier function capture; a member read captures it anew.
+  const capturedIntrinsic = (node: t.Node): IntrinsicDependency | undefined => {
+    const path = intrinsicPath(node);
+    if (path === undefined) return undefined;
+    const visited = new Set<string>();
+    let current = node;
+    let capturedAt = node;
+    let suffixLength = 0;
+    for (;;) {
+      const { root, members } = electronMemberPath(current);
+      suffixLength += members.length;
+      if (!t.isIdentifier(root)) return undefined;
+      const binding = resolveSemanticBindingState(state, root, root.name);
+      if (binding === undefined) return { path, capturedAt };
+      const initializer = semanticStableInitializer(binding, state);
+      if (
+        initializer === undefined ||
+        (initializer.node.end ?? Infinity) >= (root.start ?? -1) ||
+        visited.has(binding.bindingId)
+      )
+        return undefined;
+      visited.add(binding.bindingId);
+      if (suffixLength === 0) capturedAt = initializer.node;
+      suffixLength += initializer.projection.length;
       current = initializer.node;
     }
   };
@@ -152,7 +183,7 @@ export const createSemanticModuleInterop = (
         return true;
       if (!t.isIdentifier(current)) return false;
       const binding = resolveSemanticBindingState(state, current, current.name);
-      const initializer = stableInitializer(binding, state);
+      const initializer = unprojectedInitializer(binding, state);
       if (
         binding === undefined ||
         initializer === undefined ||
@@ -173,7 +204,7 @@ export const createSemanticModuleInterop = (
     helpers.set(binding.bindingId, null);
     if (state.scopesById.get(binding.scopeId)?.kind !== "program")
       return undefined;
-    const wrapper = stableInitializer(binding, state);
+    const wrapper = unprojectedInitializer(binding, state);
     if (wrapper === undefined) return undefined;
     if (identityFunction(wrapper, state)) {
       const proof = {
@@ -188,7 +219,7 @@ export const createSemanticModuleInterop = (
     }
     const wrapperRoles = canonicalRoles(wrapper, TO_ESM, state);
     const copyBinding = wrapperRoles?.get("__copyProps");
-    const copy = stableInitializer(copyBinding, state);
+    const copy = unprojectedInitializer(copyBinding, state);
     const copyRoles =
       copy === undefined ? undefined : canonicalRoles(copy, COPY_PROPS, state);
     if (
@@ -198,22 +229,27 @@ export const createSemanticModuleInterop = (
     )
       return undefined;
     const dependencies: IntrinsicDependency[] = [];
+    let readyAfter = Math.max(wrapper.end ?? Infinity, copy.end ?? Infinity);
     for (const roles of [wrapperRoles, copyRoles])
       for (const [role, dependency] of roles) {
         const expected = INTRINSICS[role];
         if (expected === undefined) continue;
-        const initializer = stableInitializer(dependency, state);
-        const path =
-          initializer === undefined ? undefined : intrinsicPath(initializer);
+        const initializer = unprojectedInitializer(dependency, state);
+        const captured =
+          initializer === undefined
+            ? undefined
+            : capturedIntrinsic(initializer);
         if (
           initializer === undefined ||
-          path === undefined ||
-          JSON.stringify(path) !== JSON.stringify(["intrinsic", ...expected])
+          captured === undefined ||
+          JSON.stringify(captured.path) !==
+            JSON.stringify(["intrinsic", ...expected])
         )
           return undefined;
-        dependencies.push({ path, capturedAt: initializer });
+        readyAfter = Math.max(readyAfter, initializer.end ?? Infinity);
+        dependencies.push(captured);
         if (role === "__hasOwnProp")
-          dependencies.push({ path: [...path, "call"] });
+          dependencies.push({ path: [...captured.path, "call"] });
       }
     dependencies.push(
       { path: ["intrinsic", "Function", "prototype", "bind"] },
@@ -222,11 +258,7 @@ export const createSemanticModuleInterop = (
     const proof = {
       dependencies,
       identity: false,
-      readyAfter: Math.max(
-        wrapper.end ?? Infinity,
-        copy.end ?? Infinity,
-        ...dependencies.map(({ capturedAt }) => capturedAt?.end ?? -1),
-      ),
+      readyAfter,
     };
     helpers.set(binding.bindingId, proof);
     return proof;
@@ -282,7 +314,7 @@ export const createSemanticModuleInterop = (
   const origin = (
     binding: JavaScriptSemanticBindingState,
   ): InteropOrigin | undefined => {
-    const single = stableInitializer(binding, state);
+    const single = unprojectedInitializer(binding, state);
     if (single !== undefined) {
       const result = callOrigin(single);
       if (result !== undefined) origins.set(binding.bindingId, result);
@@ -416,29 +448,15 @@ const identityFunction = (
   );
 };
 
-const stableInitializer = (
+const unprojectedInitializer = (
   binding: JavaScriptSemanticBindingState | undefined,
   state: JavaScriptSemanticAnalysisState,
 ): t.Node | undefined => {
-  const initializer = stableBindingInitializer(binding, state);
+  const initializer = semanticStableInitializer(binding, state);
   return initializer?.projection.length === 0 ? initializer.node : undefined;
 };
 
-const stableBindingInitializer = (
-  binding: JavaScriptSemanticBindingState | undefined,
-  state: JavaScriptSemanticAnalysisState,
-): JavaScriptSemanticBindingState["initializers"][number] | undefined => {
-  const [initializer] = binding?.initializers ?? [];
-  return binding !== undefined &&
-    binding.definitions.length === 1 &&
-    binding.initializers.length === 1 &&
-    initializer !== undefined &&
-    !state.conditionalInitializers.has(initializer.node)
-    ? initializer
-    : undefined;
-};
-
-/** Exact AST shape with a bijection of lexical roles, not identifier spelling. */
+/** Match operations and lexical roles, allowing single-statement control blocks. */
 const canonicalRoles = (
   actual: t.Node,
   pattern: t.Node,
@@ -450,9 +468,18 @@ const canonicalRoles = (
     [{ actual, pattern, parent: null }];
   while (pending.length !== 0) {
     const pair = pending.pop();
-    if (pair === undefined || pair.actual.type !== pair.pattern.type)
-      return undefined;
-    const { actual: node, pattern: expected, parent } = pair;
+    if (pair === undefined) return undefined;
+    const { parent } = pair;
+    const controlBody =
+      (t.isIfStatement(parent) &&
+        (parent.consequent === pair.pattern ||
+          parent.alternate === pair.pattern)) ||
+      (t.isForStatement(parent) && parent.body === pair.pattern);
+    const node = controlBody ? controlBodyOperation(pair.actual) : pair.actual;
+    const expected = controlBody
+      ? controlBodyOperation(pair.pattern)
+      : pair.pattern;
+    if (node.type !== expected.type) return undefined;
     const literalKey =
       parent !== null &&
       ((t.isMemberExpression(parent) &&
@@ -503,4 +530,20 @@ const canonicalRoles = (
     }
   }
   return roles;
+};
+
+// Braces around one control-body statement do not add operations. Keep other
+// blocks, directives and extra statements intact; their semantics need proof.
+// Lexical declarations/references still pass through canonicalRoles' bijection.
+const controlBodyOperation = (node: t.Node): t.Node => {
+  while (
+    t.isBlockStatement(node) &&
+    node.directives.length === 0 &&
+    node.body.length === 1
+  ) {
+    const statement = node.body[0];
+    if (statement === undefined) break;
+    node = statement;
+  }
+  return node;
 };

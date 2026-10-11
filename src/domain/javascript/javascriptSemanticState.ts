@@ -75,6 +75,29 @@ export interface JavaScriptSemanticAnalysisState {
   readonly conditionalInitializers: WeakSet<t.Node>;
 }
 
+/**
+ * Return one unconditional source initializer for a declared lexical binding.
+ * This establishes a stable source fact only; it does not prove immutability or
+ * that the declaration has executed at a particular program point.
+ */
+export const semanticStableInitializer = (
+  binding: JavaScriptSemanticBindingState | undefined,
+  state: JavaScriptSemanticAnalysisState,
+): JavaScriptSemanticBindingState["initializers"][number] | undefined => {
+  const [initializer] = binding?.initializers ?? [];
+  const [definition] = binding?.definitions ?? [];
+  return binding !== undefined &&
+    binding.definitions.length === 1 &&
+    (definition?.kind === "variable" ||
+      definition?.kind === "function" ||
+      definition?.kind === "class") &&
+    binding.initializers.length === 1 &&
+    initializer !== undefined &&
+    !state.conditionalInitializers.has(initializer.node)
+    ? initializer
+    : undefined;
+};
+
 /** Return the active scope from a non-empty construction stack. */
 export const currentSemanticScope = (
   stack: readonly JavaScriptSemanticScopeState[],

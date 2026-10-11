@@ -120,4 +120,27 @@ describe("Electron API identity", () => {
 
     expect(analysis.electron.browser_windows).toEqual([]);
   });
+
+  it("follows stable declaration aliases but not an assigned default parameter", () => {
+    const analysis = analyzeJavaScriptStaticSource(`
+      const direct = require("electron");
+      const constAlias = direct;
+      new constAlias.BrowserWindow({webPreferences:{preload:"./const.js"}});
+
+      let letAlias = require("electron");
+      new letAlias.BrowserWindow({webPreferences:{preload:"./let.js"}});
+
+      const { BrowserWindow } = require("electron");
+      new BrowserWindow({webPreferences:{preload:"./destructured.js"}});
+
+      function withDefault(electron = require("./not-electron")) {
+        if (flag) electron = require("electron");
+        new electron.BrowserWindow({webPreferences:{preload:"./default.js"}});
+      }
+    `);
+
+    expect(
+      analysis.electron.browser_windows.map(({ preload_path }) => preload_path),
+    ).toEqual(["./const.js", "./let.js", "./destructured.js"]);
+  });
 });
