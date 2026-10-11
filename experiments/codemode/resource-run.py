@@ -29,7 +29,7 @@ def main():
     cpu = max(os.sched_getaffinity(0))
     command = [
         'systemd-run', '--user', '--scope', '--unit=' + unit,
-        '-p', 'MemoryMax=4G', '-p', 'MemoryHigh=2G', '-p', 'MemorySwapMax=0',
+        '-p', 'MemoryMax=4G', '-p', 'MemoryHigh=3G', '-p', 'MemorySwapMax=0',
         '-p', 'CPUQuota=100%', '-p', 'TasksMax=96',
         'taskset', '-c', str(cpu), *args,
     ]

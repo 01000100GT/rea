@@ -63,7 +63,12 @@ export class CodeModeBridge {
   }
 
   /** Search exposes original schemas and generated input types on demand. */
-  async search({ query = "", names = [], schemas = true }) {
+  async search({
+    query = "",
+    names = [],
+    schemas = true,
+    output_schemas = false,
+  }) {
     const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
     const selected = this.upstream.catalog.filter((tool) =>
       names.length
@@ -85,7 +90,11 @@ export class CodeModeBridge {
         : undefined;
       tools.push(
         schemas
-          ? { ...tool, typescript: inputType }
+          ? {
+              ...tool,
+              ...(!output_schemas ? { outputSchema: undefined } : {}),
+              typescript: inputType,
+            }
           : {
               name: tool.name,
               description: tool.description,
@@ -292,11 +301,12 @@ export function createBridgeServer(bridge) {
     "rea_search",
     {
       description:
-        "Discover original REA tools by all query words or exact names. Empty query lists the complete catalog. Schemas are exact upstream MCP schemas; generated TypeScript inputs are optional. Code Mode calls tools.<name>(original_arguments); results are original MCP envelopes, parsed by json(reply).",
+        "Discover original REA tools by all query words or exact names. Empty query lists the complete catalog. Input schemas are exact upstream MCP schemas with generated TypeScript. Request output_schemas=true only when needed. catalog_sha256 hashes the upstream SDK tool catalog, not REA server_identity.catalog.digests. Code Mode calls tools.<name>(original_arguments); results are original MCP envelopes, parsed by json(reply).",
       inputSchema: z.strictObject({
         query: z.string().default(""),
         names: z.array(z.string()).default([]),
         schemas: z.boolean().default(true),
+        output_schemas: z.boolean().default(false),
       }),
       annotations: {
         readOnlyHint: true,

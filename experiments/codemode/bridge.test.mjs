@@ -31,7 +31,10 @@ after(async () => {
 });
 
 test("discovery preserves exact current REA schemas and names", async () => {
-  const result = await bridge.search({ names: ["binary_session"] });
+  const result = await bridge.search({
+    names: ["binary_session"],
+    output_schemas: true,
+  });
   assert.equal(result.total_tools, upstream.catalog.length);
   const original = upstream.catalog.find(
     (tool) => tool.name === "binary_session",
@@ -39,6 +42,9 @@ test("discovery preserves exact current REA schemas and names", async () => {
   const { typescript, ...discovered } = result.tools[0];
   assert.deepEqual(discovered, original);
   assert.match(typescript, /export interface BinarySession_Input/);
+  const inputOnly = await bridge.search({ names: ["binary_session"] });
+  assert.deepEqual(inputOnly.tools[0].inputSchema, original.inputSchema);
+  assert.equal(inputOnly.tools[0].outputSchema, undefined);
   const all = await bridge.search({ schemas: false });
   assert.deepEqual(
     all.tools.map((tool) => tool.name),

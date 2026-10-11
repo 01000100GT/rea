@@ -27,6 +27,10 @@ node bridge.mjs /absolute/path/to/node /absolute/path/to/rea/scripts/rea.mjs mcp
 Register that command as a separate, temporary MCP server for a trial. Existing
 REA registrations keep their original tools. `rea_search` accepts a query or exact
 names; use `schemas: false` for the complete lightweight name/description list.
+Input schemas are returned by default. Request `output_schemas: true` when a
+result contract is needed; the original output schema is then returned unchanged.
+`catalog_sha256` identifies the SDK catalog; it must not be substituted for REA's
+`server_identity.catalog.digests` fields.
 `rea_execute` accepts a JavaScript async function body. For example:
 
 ```js
