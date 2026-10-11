@@ -323,8 +323,16 @@ substitute version-dependent Electron defaults for omitted `webPreferences`.
 Dynamic option objects, bridge keys, API objects, and IPC channel expressions
 remain unknown and make coverage partial.
 
-Electron API identity follows proven lexical module aliases. Reassigned bindings,
-dynamic selections, and visibly overwritten namespace members are unresolved.
+Electron API identity follows proven lexical module aliases. Namespace interop
+also preserves identity when the complete Rolldown helper operations, lexical
+roles, live getters, and captured intrinsic origins match, or when a stable
+helper simply returns its module parameter. Recognition uses structure rather
+than emitted names; other helper bodies and ambiguous runtime fallbacks remain
+unresolved. Captured function identities survive later global-property
+replacement. Visible intrinsic writes before capture or conversion are checked
+in their owning callable scope. Arbitrary cross-call side effects are not
+evaluated. Other reassignments, dynamic selections, and visibly overwritten
+namespace members are unresolved.
 Direct and destructuring assignment, loop, update, and delete targets are checked
 through namespace aliases; unrelated member writes do not discard observed API
 identity. This static check does

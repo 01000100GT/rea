@@ -168,6 +168,32 @@ describe("Electron module interop uncertainty", () => {
   });
 });
 
+describe("Electron module interop helper results", () => {
+  it.each([
+    "const __toESM = () => ({BrowserWindow:FakeWindow});",
+    "const __toESM = async (mod) => mod;",
+    "function* __toESM(mod) { return mod; }",
+    "const __toESM = (this && this.__toESM) || ((mod) => mod);",
+  ])("keeps an unproven fresh result unresolved: %s", (helper) => {
+    const analysis = analyzeJavaScriptStaticSource(`${helper}
+      const electron = __toESM(require("electron"), 1); ${WINDOW}
+      new (__toESM(require("electron"), 1)).BrowserWindow({});
+    `);
+    expect(analysis.electron.browser_windows).toEqual([]);
+  });
+
+  it("preserves a proven fresh namespace and a pure identity helper", () => {
+    const analysis = analyzeJavaScriptStaticSource(`${ROLLDOWN_MODULE_INTEROP}
+      const electron = __toESM(require("electron"), 1); ${WINDOW}
+      new (__toESM(require("electron"), 1)).BrowserWindow({});
+      function passthrough(value) {return value;}
+      const plain = passthrough(require("electron"));
+      new plain.BrowserWindow({});
+    `);
+    expect(analysis.electron.browser_windows).toHaveLength(3);
+  });
+});
+
 describe("Electron module interop capture and scope", () => {
   it("does not reject unrelated intrinsic property definitions", () => {
     const analysis = analyzeJavaScriptStaticSource(`

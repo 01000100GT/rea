@@ -391,7 +391,13 @@ export function* classifyParsedJavaScriptElectronBindingsSteps(
         ? undefined
         : (exported ?? undefined);
     }
-    const origin = semanticRequireOrigin(root, state)?.origin;
+    const wrapped = interop.callOrigin(root);
+    const origin =
+      wrapped === undefined
+        ? semanticRequireOrigin(root, state)?.origin
+        : collectedWrites && interop.invalidatedCall(root)
+          ? undefined
+          : wrapped.origin;
     return origin !== undefined && ELECTRON_MODULE.test(origin.specifier)
       ? electronExportPath(origin.importedPath)
       : undefined;
@@ -442,7 +448,7 @@ const electronExport = (
   const reassigned = binding.definitions.some(
     ({ kind }) => kind === "assignment",
   );
-  const converted = reassigned ? interop.origin(binding) : undefined;
+  const converted = interop.origin(binding);
   if (reassigned && converted === undefined) return null;
   const directOrigin = converted?.origin ?? bindingOrigin(binding, state);
   const [initializer] = binding.initializers;

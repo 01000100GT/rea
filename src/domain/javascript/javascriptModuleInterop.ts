@@ -55,6 +55,7 @@ interface InteropOrigin {
 interface InteropHelper {
   readonly dependencies: readonly IntrinsicDependency[];
   readonly readyAfter: number;
+  readonly identity: boolean;
 }
 
 /** Prove one inert namespace conversion without relaxing general assignment semantics. */
@@ -63,6 +64,7 @@ export const createSemanticModuleInterop = (
 ) => {
   const helpers = new Map<string, InteropHelper | null>();
   const origins = new Map<string, InteropOrigin>();
+  const calls = new WeakMap<t.Node, InteropOrigin>();
   const intrinsicBindings = new Map<string, readonly string[] | null>();
   const writes: {
     readonly scope: string;
@@ -70,6 +72,7 @@ export const createSemanticModuleInterop = (
     readonly coverage: SemanticPropertyPathCoverage;
   }[] = [];
   const invalidatedBindings = new Map<string, boolean>();
+  const invalidatedCalls = new WeakMap<t.Node, boolean>();
   const opaqueMutationPath = (node: t.Node): readonly string[] => {
     let current: t.Node | undefined = node;
     while (current !== undefined) {
@@ -134,8 +137,21 @@ export const createSemanticModuleInterop = (
     const cached = helpers.get(binding.bindingId);
     if (cached !== undefined) return cached ?? undefined;
     helpers.set(binding.bindingId, null);
+    if (state.scopesById.get(binding.scopeId)?.kind !== "program")
+      return undefined;
     const wrapper = stableInitializer(binding, state);
     if (wrapper === undefined) return undefined;
+    if (identityFunction(wrapper, state)) {
+      const proof = {
+        dependencies: [],
+        readyAfter: t.isFunctionDeclaration(wrapper)
+          ? -1
+          : (wrapper.end ?? Infinity),
+        identity: true,
+      };
+      helpers.set(binding.bindingId, proof);
+      return proof;
+    }
     const wrapperRoles = canonicalRoles(wrapper, TO_ESM, state);
     const copyBinding = wrapperRoles?.get("__copyProps");
     const copy = stableInitializer(copyBinding, state);
@@ -171,6 +187,7 @@ export const createSemanticModuleInterop = (
     );
     const proof = {
       dependencies,
+      identity: false,
       readyAfter: Math.max(
         wrapper.end ?? Infinity,
         copy.end ?? Infinity,
@@ -181,9 +198,62 @@ export const createSemanticModuleInterop = (
     return proof;
   };
 
+  const provenCall = (node: t.Node) => {
+    if (!t.isCallExpression(node) || !t.isIdentifier(node.callee))
+      return undefined;
+    const helper = resolveSemanticBindingState(
+      state,
+      node.callee,
+      node.callee.name,
+    );
+    const proof = helper === undefined ? undefined : helperProof(helper);
+    const input = node.arguments[0];
+    if (
+      proof === undefined ||
+      proof.readyAfter >= (node.start ?? -1) ||
+      !t.isExpression(input) ||
+      (!proof.identity &&
+        (node.arguments.length !== 2 ||
+          !t.isNumericLiteral(node.arguments[1], { value: 1 })))
+    )
+      return undefined;
+    return {
+      input,
+      dependencies: proof.dependencies.map((dependency) => ({
+        ...dependency,
+        capturedAt: dependency.capturedAt ?? node,
+      })),
+    };
+  };
+
+  const callOrigin = (node: t.Node): InteropOrigin | undefined => {
+    const cached = calls.get(node);
+    if (cached !== undefined) return cached;
+    const converted = provenCall(node);
+    const required =
+      converted === undefined
+        ? undefined
+        : semanticRequireOrigin(converted.input, state)?.origin;
+    if (
+      converted === undefined ||
+      required === undefined ||
+      required.importedPath.length !== 0
+    )
+      return undefined;
+    const result = { origin: required, dependencies: converted.dependencies };
+    calls.set(node, result);
+    return result;
+  };
+
   const origin = (
     binding: JavaScriptSemanticBindingState,
   ): InteropOrigin | undefined => {
+    const single = stableInitializer(binding, state);
+    if (single !== undefined) {
+      const result = callOrigin(single);
+      if (result !== undefined) origins.set(binding.bindingId, result);
+      return result;
+    }
     const [initial, converted] = binding.initializers;
     if (
       binding.definitions.length !== 2 ||
@@ -219,12 +289,11 @@ export const createSemanticModuleInterop = (
       !t.isVariableDeclaration(declarationStatement) ||
       state.parentsByNode.get(statement) !==
         state.parentsByNode.get(declarationStatement) ||
-      (initial.node.start ?? Infinity) >= (call.start ?? -1) ||
-      call.arguments.length !== 2 ||
-      !t.isNumericLiteral(call.arguments[1], { value: 1 })
+      (initial.node.start ?? Infinity) >= (call.start ?? -1)
     )
       return undefined;
-    const input = call.arguments[0];
+    const convertedCall = provenCall(call);
+    const input = convertedCall?.input;
     if (
       !t.isIdentifier(input) ||
       resolveSemanticBindingState(state, input, input.name) !== binding
@@ -233,26 +302,30 @@ export const createSemanticModuleInterop = (
     const required = semanticRequireOrigin(initial.node, state)?.origin;
     if (required === undefined || required.importedPath.length !== 0)
       return undefined;
-    const helper = resolveSemanticBindingState(
-      state,
-      call.callee,
-      call.callee.name,
-    );
-    const proof = helper === undefined ? undefined : helperProof(helper);
-    if (proof === undefined || proof.readyAfter >= (call.start ?? -1))
-      return undefined;
+    if (convertedCall === undefined) return undefined;
     const result = {
       origin: required,
-      dependencies: proof.dependencies.map((dependency) => ({
-        ...dependency,
-        capturedAt: dependency.capturedAt ?? call,
-      })),
+      dependencies: convertedCall.dependencies,
     };
     origins.set(binding.bindingId, result);
     return result;
   };
+  const invalidatedOrigin = (record: InteropOrigin | undefined): boolean =>
+    record?.dependencies.some(({ path, capturedAt }) => {
+      if (capturedAt === undefined) return true;
+      const scope = opaqueMutationPath(capturedAt).join(".");
+      // Captured function values survive later replacement of global
+      // properties. Other callable bodies are not execution evidence.
+      return writes.some(
+        (write) =>
+          (write.scope === scope || write.scope === "intrinsic") &&
+          write.offset < (capturedAt.start ?? -1) &&
+          write.coverage.covers(path),
+      );
+    }) ?? false;
   return {
     origin,
+    callOrigin,
     intrinsicPath,
     opaqueMutationPath,
     retainWrite: (node: t.Node, path: readonly (string | null)[]) => {
@@ -267,25 +340,45 @@ export const createSemanticModuleInterop = (
     invalidated: (binding: JavaScriptSemanticBindingState): boolean => {
       const cached = invalidatedBindings.get(binding.bindingId);
       if (cached !== undefined) return cached;
-      const result =
-        origins
-          .get(binding.bindingId)
-          ?.dependencies.some(({ path, capturedAt }) => {
-            if (capturedAt === undefined) return true;
-            const scope = opaqueMutationPath(capturedAt).join(".");
-            // Captured function values survive later replacement of global
-            // properties. Other callable bodies are not execution evidence.
-            return writes.some(
-              (write) =>
-                (write.scope === scope || write.scope === "intrinsic") &&
-                write.offset < (capturedAt.start ?? -1) &&
-                write.coverage.covers(path),
-            );
-          }) ?? false;
+      const result = invalidatedOrigin(origins.get(binding.bindingId));
       invalidatedBindings.set(binding.bindingId, result);
       return result;
     },
+    invalidatedCall: (node: t.Node): boolean => {
+      const cached = invalidatedCalls.get(node);
+      if (cached !== undefined) return cached;
+      const result = invalidatedOrigin(calls.get(node));
+      invalidatedCalls.set(node, result);
+      return result;
+    },
   };
+};
+
+const identityFunction = (
+  node: t.Node,
+  state: JavaScriptSemanticAnalysisState,
+): boolean => {
+  if (
+    !t.isFunction(node) ||
+    node.async ||
+    node.generator ||
+    node.params.length !== 1
+  )
+    return false;
+  const parameter = node.params[0];
+  const result = t.isBlockStatement(node.body)
+    ? node.body.body.length === 1 && t.isReturnStatement(node.body.body[0])
+      ? node.body.body[0].argument
+      : undefined
+    : node.body;
+  return (
+    t.isIdentifier(parameter) &&
+    t.isIdentifier(result) &&
+    resolveSemanticBindingState(state, parameter, parameter.name) !==
+      undefined &&
+    resolveSemanticBindingState(state, parameter, parameter.name) ===
+      resolveSemanticBindingState(state, result, result.name)
+  );
 };
 
 const stableInitializer = (
