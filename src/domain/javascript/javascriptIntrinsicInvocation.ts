@@ -32,6 +32,7 @@ export const resolveJavaScriptIntrinsicInvocation = (
   node: t.CallExpression | t.OptionalCallExpression,
   intrinsicPath: (node: t.Node) => readonly string[] | undefined,
   boundIntrinsic: (node: t.Node) => JavaScriptIntrinsicInvocation | undefined,
+  intrinsicReadChanged: (node: t.Node, path: readonly string[]) => boolean,
 ): JavaScriptIntrinsicInvocation | undefined => {
   const visited = new Set<t.Node>();
   let callee: t.Node = node.callee;
@@ -42,6 +43,8 @@ export const resolveJavaScriptIntrinsicInvocation = (
     if (visited.has(callee)) return undefined;
     visited.add(callee);
     let path = intrinsicPath(callee);
+    if (path !== undefined && intrinsicReadChanged(callee, path))
+      return { kind: "opaque", path, arguments: undefined };
     if (path === undefined) {
       if (
         t.isMemberExpression(callee) ||
@@ -52,6 +55,12 @@ export const resolveJavaScriptIntrinsicInvocation = (
           callee.computed,
         );
         if (method === "call" || method === "apply") {
+          const bound = boundIntrinsic(callee.object);
+          if (
+            bound !== undefined &&
+            intrinsicReadChanged(callee, [...bound.path, method])
+          )
+            return { kind: "opaque", path: bound.path, arguments: undefined };
           receiver = arguments_?.[0];
           callee = callee.object;
           arguments_ = invocationArguments(method, arguments_);
@@ -60,6 +69,7 @@ export const resolveJavaScriptIntrinsicInvocation = (
       }
       const bound = boundIntrinsic(callee);
       if (bound === undefined) return undefined;
+      if (bound.kind === "opaque") return bound;
       path = bound.path;
       receiver = bound.receiver;
       arguments_ =
@@ -92,7 +102,12 @@ export const resolveJavaScriptIntrinsicInvocation = (
       arguments_ = arrayArguments(arguments_?.[2]);
       continue;
     }
-    return { path, arguments: arguments_ };
+    return {
+      kind: "known",
+      path,
+      arguments: arguments_,
+      ...(receiver === undefined ? {} : { receiver }),
+    };
   }
 };
 

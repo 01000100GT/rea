@@ -43,6 +43,7 @@ export const electronMemberPath = (
 
 /** A known intrinsic callable and its examined positional arguments. */
 export interface JavaScriptIntrinsicInvocation {
+  readonly kind: "known" | "opaque";
   /** The original bound receiver; rebinding cannot replace it. */
   readonly receiver?: t.Node;
   readonly path: readonly string[];
@@ -82,6 +83,11 @@ export function* collectJavaScriptIdentityWritesSteps(
     enter: (node) => {
       if (t.isCallExpression(node) || t.isOptionalCallExpression(node)) {
         const invocation = intrinsicInvocation(node);
+        if (invocation?.kind === "opaque") {
+          const scope = origin(node, "opaque-call");
+          if (scope !== undefined) retain(node, scope);
+          return;
+        }
         const callee = invocation?.path;
         const arguments_ = invocation?.arguments;
         const method = callee?.at(-1);

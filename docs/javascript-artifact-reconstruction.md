@@ -345,7 +345,10 @@ are unresolved.
 Known Object/Reflect mutators remain recognizable through literal destructuring
 of intrinsic objects and stable bound-function aliases. Calls retain bound
 argument prefixes and the original bound receiver through `call`, `apply`, and
-`Reflect.apply`, including generic `Function.prototype` invocation; unexamined
+`Reflect.apply`, including generic `Function.prototype` invocation and binding
+creation. Visibly replaced invocation intrinsics produce unknown effects instead
+of using their former call semantics; captured function aliases retain their
+earlier identity. Unexamined
 targets remain unresolved. Creating an unused binding does not itself mutate
 an intrinsic. Variable redeclarations retain a single unconditional initializer
 when they introduce no assignment or second initializer.

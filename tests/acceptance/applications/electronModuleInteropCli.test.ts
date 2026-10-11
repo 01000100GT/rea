@@ -25,6 +25,14 @@ const INTRINSIC_MUTATIONS = [
     'const change = Function.prototype.call.bind(Object.defineProperty,null); change(Object,"create",{value:customCreate});',
   ],
   [
+    "generic-bind.cjs",
+    'const change = Function.prototype.bind.call(Object.defineProperty,null); change(Object,"create",{value:customCreate});',
+  ],
+  [
+    "replaced-apply.cjs",
+    'Reflect.apply = Object.defineProperty; Reflect.apply(Object,"create",{value:customCreate});',
+  ],
+  [
     "bound.cjs",
     'const change = Object.defineProperty.bind(null,Object,"create"); change({value:customCreate});',
   ],
@@ -93,6 +101,8 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       require("./decorated.cjs");
       require("./bound.cjs");
       require("./uncurried.cjs");
+      require("./generic-bind.cjs");
+      require("./replaced-apply.cjs");
       throw new Error("must not execute main");
     `;
     await writeFile(join(root, "main.cjs"), source);
@@ -119,7 +129,7 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       preload_entrypoints: 1,
     });
     expect(result.statistics.parse_failures).toBe(0);
-    expect(result.statistics.parsed_javascript_files).toBe(7);
+    expect(result.statistics.parsed_javascript_files).toBe(9);
     const windows = result.graph.nodes.filter(
       ({ kind }) => kind === "browser-window",
     );

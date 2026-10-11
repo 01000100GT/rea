@@ -205,7 +205,31 @@ export const createSemanticModuleInterop = (
     }
   };
 
-  const boundIntrinsic = (
+  const intrinsicReadChanged = (
+    node: t.Node,
+    path: readonly string[],
+  ): boolean => {
+    const capture = capturedIntrinsic(node)?.capturedAt ?? node;
+    const scope = opaqueMutationPath(capture).join(".");
+    const method = path.at(-1);
+    const invocationMethod =
+      method === "bind" || method === "call" || method === "apply";
+    return writes.some(
+      (write) =>
+        (write.scope === scope || write.scope === "intrinsic") &&
+        write.offset < (capture.start ?? -1) &&
+        (write.coverage.covers(path) ||
+          (invocationMethod &&
+            write.coverage.covers([
+              "intrinsic",
+              "Function",
+              "prototype",
+              method,
+            ]))),
+    );
+  };
+
+  const resolveBoundIntrinsic = (
     node: t.Node,
   ): JavaScriptIntrinsicInvocation | undefined => {
     const visited = new Set<string>();
@@ -236,26 +260,49 @@ export const createSemanticModuleInterop = (
         continue;
       }
       if (!t.isCallExpression(current)) return undefined;
-      const { root: bindTarget, members } = electronMemberPath(current.callee);
-      if (members.at(-1) !== "bind") return undefined;
-      const captured = capturedIntrinsic(current.callee);
-      const terminal = captured?.path.at(-1) === "bind";
-      // Only a direct .bind can continue a previously bound callable. Keeping
-      // intervening members would require a separate proof of their identity.
-      if (!terminal && members.length !== 1) return undefined;
-      bindReads.push(captured?.capturedAt ?? current.callee);
-      receiver = current.arguments[0];
-      const ownArguments = current.arguments.slice(1);
-      opaqueArguments ||= t.isSpreadElement(receiver);
+      const { root, members } = electronMemberPath(current.callee);
+      let bindTarget = root;
+      let bindingArguments: JavaScriptIntrinsicInvocation["arguments"] =
+        current.arguments;
+      let captured = capturedIntrinsic(current.callee);
+      let terminal = captured?.path.at(-1) === "bind";
+      let path: readonly string[] | undefined = captured?.path.slice(0, -1);
+      if (members.at(-1) === "bind") {
+        // A direct .bind may continue a bound callable, without discarding members.
+        if (!terminal && members.length !== 1) return undefined;
+        bindReads.push(captured?.capturedAt ?? current.callee);
+      } else {
+        // Reuse the invocation owner for generic call/apply/Reflect.apply of bind.
+        const invocation = resolveJavaScriptIntrinsicInvocation(
+          current,
+          intrinsicPath,
+          boundIntrinsic,
+          intrinsicReadChanged,
+        );
+        if (
+          invocation?.kind !== "known" ||
+          invocation.path.join(".") !== "intrinsic.Function.prototype.bind" ||
+          invocation.receiver === undefined
+        )
+          return undefined;
+        bindTarget = invocation.receiver;
+        bindingArguments = invocation.arguments;
+        captured = capturedIntrinsic(bindTarget);
+        terminal = captured !== undefined;
+        path = captured?.path;
+      }
+      receiver = bindingArguments?.[0];
+      const ownArguments = bindingArguments?.slice(1) ?? [];
+      opaqueArguments ||=
+        bindingArguments === undefined || t.isSpreadElement(receiver);
       opaqueArguments ||= ownArguments.some((argument) =>
         t.isSpreadElement(argument),
       );
       argumentGroups.push(ownArguments);
-      if (!terminal || captured === undefined) {
+      if (!terminal || path === undefined) {
         current = bindTarget;
         continue;
       }
-      const path = captured.path.slice(0, -1);
       const boundPath = [...path, "bind"];
       const functionBind = ["intrinsic", "Function", "prototype", "bind"];
       opaqueArguments ||= bindReads.some((capture) => {
@@ -269,6 +316,7 @@ export const createSemanticModuleInterop = (
         );
       });
       return {
+        kind: opaqueArguments ? "opaque" : "known",
         path,
         ...(receiver === undefined ? {} : { receiver }),
         // Rebinding appends arguments to the earlier bound argument list.
@@ -276,6 +324,19 @@ export const createSemanticModuleInterop = (
           ? undefined
           : argumentGroups.toReversed().flat(),
       };
+    }
+  };
+
+  const activeBoundValues = new WeakSet<t.Node>();
+  const boundIntrinsic = (
+    node: t.Node,
+  ): JavaScriptIntrinsicInvocation | undefined => {
+    if (activeBoundValues.has(node)) return undefined;
+    activeBoundValues.add(node);
+    try {
+      return resolveBoundIntrinsic(node);
+    } finally {
+      activeBoundValues.delete(node);
     }
   };
 
@@ -549,7 +610,12 @@ export const createSemanticModuleInterop = (
     callOrigin,
     intrinsicPath,
     intrinsicInvocation: (node: t.CallExpression | t.OptionalCallExpression) =>
-      resolveJavaScriptIntrinsicInvocation(node, intrinsicPath, boundIntrinsic),
+      resolveJavaScriptIntrinsicInvocation(
+        node,
+        intrinsicPath,
+        boundIntrinsic,
+        intrinsicReadChanged,
+      ),
     boundIntrinsic,
     staticString,
     isFreshObject,
