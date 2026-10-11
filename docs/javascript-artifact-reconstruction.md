@@ -346,15 +346,18 @@ Known Object/Reflect mutators remain recognizable through literal destructuring
 of intrinsic objects and stable bound-function aliases. Calls retain bound
 argument prefixes and the original bound receiver through `call`, `apply`, and
 `Reflect.apply`, including generic `Function.prototype` invocation and binding
-creation. Visibly replaced invocation intrinsics produce unknown effects instead
+creation. Arguments follow each actual callable invocation rather than property
+chain depth; rebinding retains the original bound receiver.
+Visibly replaced invocation intrinsics produce unknown effects instead
 of using their former call semantics; captured function aliases retain their
-earlier identity. Invocation member reads are checked separately from the earlier function capture.
-Comma-expression callees use their final value while all preceding expressions
-remain in the effect traversal. Call effects are classified after callee and
-argument effects have been collected. Unexamined
+earlier identity. Invocation member reads are checked separately from the earlier
+function capture. Comma-expression callees use their final value while all
+preceding expressions remain in the effect traversal. Call effects are
+classified after callee and argument effects have been collected. Unexamined
 targets remain unresolved. `Reflect.set` examines its explicit receiver as well
-as its target, retaining unknown receiver effects. Creating an unused binding does not itself mutate
-an intrinsic. Variable redeclarations retain a single unconditional initializer
+as its target, retaining unknown receiver effects. Creating an unused binding
+does not itself mutate an intrinsic. Variable redeclarations retain a single
+unconditional initializer
 when they introduce no assignment or second initializer.
 Stable identifier chains to fresh object, array, function,
 undecorated class or RegExp syntax keep those targets separate from intrinsic
@@ -455,8 +458,28 @@ such as `./web3:app.js` still names a local artifact.
 Package `exports` fallback arrays are supported both at the top level and under
 the root `"."` entry. The resolver selects targets in declared order using the
 same conditional and invalid-entry handling as nested exports arrays.
+Nonempty arrays containing only inactive conditions remain unmatched, allowing
+the enclosing condition object to continue to a later active condition.
+Empty arrays and explicit null targets keep their blocking outcome.
+Refusal evidence distinguishes those source values and retains condition names
+from unmatched nested targets rather than reporting array indices.
 For imports and requires, the active Node conditions include `module-sync`;
 earlier active conditions retain precedence over later ones.
+
+Exact package-private `#alias` specifiers resolve against the importer's
+enclosing `package.json` `imports` map — the nearest same-container package
+scope, stopping at a `node_modules` directory so a nested package cannot inherit
+an ancestor's aliases. Selected targets are package-local `./` files with no
+extension or index fallback, using the same condition, array, and null selection
+as exports subpaths. A missing key, explicit null, or out-of-scope alias keeps
+an unresolved edge with that reason. Wildcard keys (`#internal/*`), recursive
+`#` targets, and external-package import targets remain unresolved.
+
+Exact keys such as `#/x` are literal lookup identities. `#` and names ending
+in `/` are invalid. Imports arrays skip invalid parent-relative, absolute, and
+URL targets before selecting a later package-local file; an unsupported bare
+package or recursive alias keeps its unresolved outcome rather than selecting
+a later fallback.
 
 ESM relative module paths and selected package exports targets use URL suffix handling
 and one percent-decoding pass. CommonJS relative paths and legacy package main

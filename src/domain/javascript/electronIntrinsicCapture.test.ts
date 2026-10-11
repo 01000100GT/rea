@@ -11,6 +11,20 @@ const WINDOW = `let electron = require("electron");
   electron = __toESM(electron, 1); new electron.BrowserWindow({});`;
 
 describe("captured intrinsic invocation reads", () => {
+  it.each([
+    '(0, Object.defineProperty.call)(null,Object,"create",{value:replacement});',
+    '(0, Object.defineProperty.apply)(null,[Object,"create",{value:replacement}]);',
+  ])(
+    "does not invent a receiver for a detached invocation member: %s",
+    (invoke) => {
+      const result = analyzeJavaScriptStaticSource(`
+      ${invoke}
+      ${ROLLDOWN_MODULE_INTEROP} ${WINDOW}
+    `);
+      expect(result.electron.browser_windows).toHaveLength(1);
+    },
+  );
+
   it("retains callee-prefix effects before classifying the invocation", () => {
     const result = analyzeJavaScriptStaticSource(`
       const define = Object.defineProperty;
