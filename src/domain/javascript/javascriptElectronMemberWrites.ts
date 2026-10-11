@@ -2,7 +2,7 @@ import * as t from "@babel/types";
 
 import {
   semanticStaticPropertyKey,
-  semanticMemberWriteTargets,
+  semanticWriteTargets,
   unwrapJavaScriptExpression,
 } from "./javascriptAstValues.js";
 import { traverseJavaScriptAstSteps } from "./javascriptSemanticTraversal.js";
@@ -135,12 +135,13 @@ export function* collectJavaScriptIdentityWritesSteps(
               ? node.left
               : undefined;
       if (target === undefined) return;
-      if (t.isIdentifier(target)) {
-        const exported = origin(target, "binding");
-        if (exported !== undefined) retain(node, exported);
-      }
-      for (const member of semanticMemberWriteTargets(target)) {
-        const { root, members } = electronMemberPath(member);
+      for (const leaf of semanticWriteTargets(target)) {
+        if (t.isIdentifier(leaf)) {
+          const exported = origin(leaf, "binding");
+          if (exported !== undefined) retain(node, exported);
+          continue;
+        }
+        const { root, members } = electronMemberPath(leaf);
         const exported = origin(root, "member");
         if (exported !== undefined) retain(node, [...exported, ...members]);
       }

@@ -330,7 +330,9 @@ helper simply returns its module parameter. Recognition uses structure rather
 than emitted names; other helper bodies and ambiguous runtime fallbacks remain
 unresolved. Captured function identities survive later global-property
 replacement. Visible intrinsic writes before capture or conversion are checked
-in their owning callable scope. Arbitrary cross-call side effects are not
+in their owning callable scope, including identifier leaves in nested/default/rest
+destructuring and loop targets. Property keys and shadowed local bindings do not
+overwrite the global intrinsic identity. Arbitrary cross-call side effects are not
 evaluated. Other reassignments, dynamic selections, and visibly overwritten
 namespace members are unresolved.
 Direct and destructuring assignment, loop, update, and delete targets are checked

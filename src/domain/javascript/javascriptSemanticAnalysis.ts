@@ -18,6 +18,7 @@ import {
 import {
   semanticObjectPatternKeys,
   semanticStaticPropertyKey,
+  semanticWriteTargets,
 } from "./javascriptAstValues.js";
 import type {
   JavaScriptSemanticAnalysisState,
@@ -634,10 +635,11 @@ function* collectDefinitionsSteps(
   for (const [index, { body, scope, parameters }] of functionBodies.entries()) {
     if (index % 64 === 0) yield;
     for (const parameter of parameters)
-      for (const identifier of assignedPatternIdentifiers(
+      for (const identifier of semanticWriteTargets(
         t.isTSParameterProperty(parameter) ? parameter.parameter : parameter,
       ))
-        copyParameterToBody({ identifier, body, scope, state });
+        if (t.isIdentifier(identifier))
+          copyParameterToBody({ identifier, body, scope, state });
   }
 }
 
@@ -785,16 +787,18 @@ const bindAssignment = (
         state,
       );
     else
-      for (const identifier of assignedPatternIdentifiers(node.left))
-        addAssignment(identifier, node, scope, state);
+      for (const identifier of semanticWriteTargets(node.left))
+        if (t.isIdentifier(identifier))
+          addAssignment(identifier, node, scope, state);
   } else if (t.isUpdateExpression(node) && t.isIdentifier(node.argument))
     addAssignment(node.argument, node, scope, state);
   else if (t.isForOfStatement(node) || t.isForInStatement(node))
     for (const pattern of t.isVariableDeclaration(node.left)
       ? node.left.declarations.map(({ id }) => id)
       : [node.left]) {
-      for (const identifier of assignedPatternIdentifiers(pattern))
-        addAssignment(identifier, node, scope, state);
+      for (const identifier of semanticWriteTargets(pattern))
+        if (t.isIdentifier(identifier))
+          addAssignment(identifier, node, scope, state);
       if (t.isForOfStatement(node))
         // Keep the loop value unknown, but preserve references yielded into
         // each bound slot so writes/escapes can reach their iterable origins.
@@ -807,30 +811,6 @@ const bindAssignment = (
           referenceOnly: true,
         });
     }
-};
-
-const assignedPatternIdentifiers = (
-  pattern: t.Node,
-): readonly t.Identifier[] => {
-  const identifiers: t.Identifier[] = [];
-  const pending = [pattern];
-  while (pending.length > 0) {
-    const node = pending.pop();
-    if (node === undefined) continue;
-    if (t.isIdentifier(node)) identifiers.push(node);
-    else if (t.isRestElement(node)) pending.push(node.argument);
-    else if (t.isAssignmentPattern(node)) pending.push(node.left);
-    else if (t.isArrayPattern(node)) {
-      for (const element of node.elements)
-        if (element !== null) pending.push(element);
-    } else if (t.isObjectPattern(node)) {
-      for (const property of node.properties)
-        pending.push(
-          t.isRestElement(property) ? property.argument : property.value,
-        );
-    }
-  }
-  return identifiers;
 };
 
 const nestedScope = (

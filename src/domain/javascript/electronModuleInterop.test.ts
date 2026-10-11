@@ -194,6 +194,44 @@ describe("Electron module interop helper results", () => {
   });
 });
 
+describe("Electron module interop pattern writes", () => {
+  it.each([
+    "({Object} = replacements);",
+    "[Function] = replacements;",
+    "({nested:{Object}} = replacements);",
+    "({replacement:Object = customObject} = replacements);",
+    "({...Object} = replacements);",
+    "[...Function] = replacements;",
+    "for ({Object} of replacements) {}",
+    "for ([Function] in replacements) {}",
+  ])("rejects an intrinsic replaced through %s", (write) => {
+    const analysis = analyzeJavaScriptStaticSource(`
+      ${write} ${ROLLDOWN_MODULE_INTEROP} ${IMPORT} ${WRAP} ${WINDOW}
+    `);
+    expect(analysis.parse_error_count).toBe(0);
+    expect(analysis.electron.browser_windows).toEqual([]);
+  });
+
+  it.each([
+    "({Object:unrelated} = replacements);",
+    "function decoy(Object) {({Object} = replacements);}",
+  ])("preserves intrinsic identity for an unrelated target: %s", (write) => {
+    const analysis = analyzeJavaScriptStaticSource(`
+      ${write} ${ROLLDOWN_MODULE_INTEROP} ${IMPORT} ${WRAP} ${WINDOW}
+    `);
+    expect(analysis.parse_error_count).toBe(0);
+    expect(analysis.electron.browser_windows).toHaveLength(1);
+  });
+
+  it("preserves captured operations after later property destructuring", () => {
+    const analysis = analyzeJavaScriptStaticSource(`
+      ${ROLLDOWN_MODULE_INTEROP} ({create:Object.create} = replacements);
+      ${IMPORT} ${WRAP} ${WINDOW}
+    `);
+    expect(analysis.electron.browser_windows).toHaveLength(1);
+  });
+});
+
 describe("Electron module interop capture and scope", () => {
   it("does not reject unrelated intrinsic property definitions", () => {
     const analysis = analyzeJavaScriptStaticSource(`
