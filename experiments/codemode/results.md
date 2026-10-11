@@ -209,3 +209,46 @@ exited 143 and left no trial profile while preserving the dummy source auth file
 This verifies credential cleanup only. The eleven actual stdio tests pass after
 the adaptive discovery change, with a sampled peak of 1365106688 bytes, 42 tasks
 and zero observed memory/task limit events.
+
+## Serial comparison and package inventory
+
+A serial Android v3 pair, without concurrent provider/build work, passes every
+fact and cited-reference check. Normal MCP uses 56.962 seconds, 105861 input
+(75776 cached, 30085 uncached), 1106 output tokens and three original calls. The
+adaptive-discovery bridge uses 106.134 seconds, 200537 input (175872 cached,
+24665 uncached), 2177 output tokens, four searches and one execution. Its smaller
+uncached input does not imply lower overall cost: output, cache rates and latency
+also matter. It still requests original output schemas and mistakenly searches
+for the already exposed bridge executor. Sampled memory peaks are 1333710848 and
+1656098816 bytes respectively; neither run touches memory/task limits. One pair
+is insufficient for a statistical latency or reliability claim.
+
+A separate Obsidian package-inventory replay succeeds with existing REA tools.
+Direct and bridge return byte-for-byte equal selected facts: 397 graph nodes and
+occurrences, 369 files, 28 directories, root main.js/package.json occurrences,
+no root preload.js, no observed integrity contradiction, complete-within-substeps
+coverage and an explicit unexplored JavaScript analysis branch. Both original
+Evidence IDs are preserved. Direct/bridge operations take 6.267/6.618 seconds;
+original single-text results total 178958 estimated tokens versus a 1404-token
+bridge result, 1305 for discovery and 322 for code. These are replay estimates,
+not model latency or success. Inventory does not complete the timed-out AST task.
+
+An output-type discovery probe compiles seven real SDK schemas successfully.
+Derived TypeScript estimates are 784/719/751 tokens for Android package/search/
+class, 1558/1420 for managed artifact/native boundaries, 1264 for artifact inventory
+and 2289 for function analysis. Their original JSON schemas use 1666/1480/1576,
+3524/2932, 2812 and 5091 respectively. These declarations describe code values;
+they do not preserve every JSON Schema validation rule. Exact-name discovery now
+includes them without replacing explicitly requested original JSON schemas. Real
+model benefit from this addition remains to be tested. The audit also carries
+original Evidence links; a real retained-view readback verifies linked IDs rather
+than trusting references invented by a projection.
+
+The output-declaration boundary suite first failed its type-name assertion because
+the compiler preferred the schema's URN identity as a display name. The derived
+compilation now supplies a descriptive title while returning the original schema
+unchanged. All eleven tests then pass, including original-link readback, at a
+sampled peak of 1399996416 bytes and zero observed limit events. Declarations are
+cached per exact tool name for this immutable live-catalog connection; repeated
+discovery does not regenerate them. No provider implementation or published
+REA API has changed.

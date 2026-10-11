@@ -54,6 +54,30 @@ return {artifact_sha256: summary.subject?.digest.sha256,
   evidence_ids: [summary.evidence_id, parent, page.evidence_id],
   limitations: [...summary.limitations, ...page.limitations]};`,
   },
+  "obsidian-inventory": {
+    artifact: "obsidian.asar",
+    tools: ["open_binary", "inspect_artifact", "close_binary"],
+    question:
+      "Report ASAR identity, complete inventory manifest, entry-kind counts, root package/main/preload occurrences, integrity contradictions and inventory coverage; do not claim AST or runtime analysis.",
+    code: `
+await call("open_binary", {path: input.path});
+try {
+  const inspected = await call("inspect_artifact", {integrity_policy: "fail"});
+  const n = inspected.normalized_result;
+  const inventory = n.substeps.find(x => x.operation === "inventory_artifact").evidence;
+  const graph = inventory.normalized_result;
+  const counts = {};
+  for (const row of graph.occurrences)
+    counts[row.entry_kind] = (counts[row.entry_kind] ?? 0) + 1;
+  return {artifact_sha256: inspected.subject.digest.sha256,
+    manifest: graph.manifest, entry_kind_counts: counts,
+    requested_paths: graph.occurrences.filter(x => ["package.json", "main.js", "preload.js"].includes(x.logical_path)),
+    integrity_contradictions: graph.integrity_contradictions,
+    coverage: n.coverage, unexplored_branches: n.unexplored_branches,
+    evidence_ids: [inspected.evidence_id, inventory.evidence_id],
+    limitations: [...inspected.limitations, ...n.limitations, ...inventory.limitations]};
+} finally { await call("close_binary", {}); }`,
+  },
   "newpipe.apk": {
     tools: [
       "inspect_android_package",
@@ -117,6 +141,7 @@ try {
 const { values } = parseArgs({
   options: {
     artifact: { type: "string" },
+    workflow: { type: "string" },
     mode: { type: "string", default: "direct" },
     "artifact-root": { type: "string" },
     providers: { type: "string" },
@@ -124,13 +149,13 @@ const { values } = parseArgs({
   },
 });
 if (
-  !workflows[values.artifact] ||
+  !workflows[values.workflow ?? values.artifact] ||
   !["direct", "discovery", "bridge"].includes(values.mode) ||
   !values["artifact-root"] ||
   !values.output
 )
   throw new Error(
-    "Use --artifact ID --mode direct|discovery|bridge --artifact-root ABS --output NEW_DIR [--providers JSON]",
+    "Use --artifact ID [--workflow NAME] --mode direct|discovery|bridge --artifact-root ABS --output NEW_DIR [--providers JSON]",
   );
 const experiment = dirname(fileURLToPath(import.meta.url));
 const repository = resolve(experiment, "../..");
@@ -138,6 +163,12 @@ const corpus = JSON.parse(
   await readFile(resolve(experiment, "corpus.json"), "utf8"),
 );
 const artifact = corpus.artifacts.find((x) => x.id === values.artifact);
+const workflowName = values.workflow ?? values.artifact;
+const workflow = workflows[workflowName];
+if (!artifact || artifact.id !== (workflow.artifact ?? workflowName))
+  throw new Error(
+    "Selected workflow does not match the frozen corpus artifact",
+  );
 const artifactPath = resolve(values["artifact-root"], artifact.file);
 const bytes = await readFile(artifactPath);
 const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -198,7 +229,6 @@ upstream.call = async (name, args, options) => {
   }
 };
 const bridge = new CodeModeBridge(upstream);
-const workflow = workflows[values.artifact];
 const input = { path: artifactPath };
 if (artifact.id === "jq") {
   if (bytes.subarray(0, 6).toString("hex") !== "7f454c460201")
@@ -281,6 +311,7 @@ const summary = {
   scope: "deterministic_real_provider_replay_not_model_accuracy",
   baseline_sha: "fb94d9dde0ccda83ae520ac6fb22b1d283562cf3",
   artifact: artifact.id,
+  workflow: workflowName,
   artifact_sha256: sha256,
   mode: values.mode,
   question: workflow.question,

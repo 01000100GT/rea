@@ -28,7 +28,9 @@ Register that command as a separate, temporary MCP server for a trial. Existing
 REA registrations keep their original tools. `rea_search` accepts a query or exact
 names; use `schemas: false` for the complete lightweight name/description list.
 Query discovery returns names/descriptions by default; exact-name discovery
-returns original input schemas. `schemas` explicitly overrides that choice.
+returns original input schemas and derived input/output TypeScript declarations.
+These declarations help write code; they do not replace JSON validation contracts.
+`schemas` explicitly overrides that choice.
 Start with one domain word and request all selected exact names in one call.
 Request `output_schemas: true` when a
 result contract is needed; the original output schema is then returned unchanged.
@@ -43,7 +45,7 @@ return { open: session.open, identity: session.server_identity };
 
 The returned projection is not a new Evidence record. `calls` preserves operation,
 argument/result digests, upstream errors and actual producer Evidence IDs when
-provided. The upstream ledger retains complete original Evidence for later views
+provided, including original `evidence_links`. The upstream ledger retains complete original Evidence for later views
 and exports. Non-Evidence session responses have no invented Evidence ID.
 Calls and executions sharing one active target are serialized; `Promise.all`
 currently provides composition rather than parallel provider execution.
@@ -89,6 +91,11 @@ Raw responses remain outside Git. Result summaries separate complete envelopes
 from single text content and count code explicitly. Measured findings and failures
 are recorded in [results.md](results.md).
 
+`--artifact obsidian.asar --workflow obsidian-inventory` asks a distinct package
+inventory question using existing tools. It must not be compared as an equivalent
+completion of the JavaScript AST question. Workflow names and original arguments
+are retained in replay summaries.
+
 `agent-trial.py` runs a real local Codex CLI with a disposable account/config and
 one MCP registration. It copies authentication only, removes the profile on normal
 completion, timeout and handled termination, and retains JSONL events, the answer
@@ -102,20 +109,34 @@ python3 resource-run.py -- python3 agent-trial.py \
   --output /absolute/path/new-trial-directory
 ```
 
+Reproducible questions are in [questions/](questions/). Supply a template with
+`--prompt questions/android.txt --artifact-path /absolute/path/NewPipe_v0.29.1.apk`
+(or another matching corpus target). The runner preserves the supplied path in
+the rendered prompt and records template and rendered-prompt digests. Native's
+entry-address seed is derived from this corpus's jq header and is not reusable
+for another build. Run comparisons serially with the same question and provider
+settings; retain failures as well as successful repetitions.
+
 Use `--mode bridge` for the experimental server; `--mode client-code` requests
 Codex's own Code Mode. Optional `--providers` selects a JSON object of explicit
 provider settings. No ambient environment snapshot is retained. A configured flag
 or a model's `tool_mode` does not prove the model actually composed tools or
 filtered an intermediate result. Inspect the transcript, and mark accuracy as
 unassessed until the requested facts and source support have been reviewed.
-`grade-trial.py` checks Android (default) or `--task managed` against a successful
-real-provider replay and verifies cited producer or bridge audit IDs. It accepts
+`grade-trial.py` checks Android (default), managed, native, firmware or
+electron-inventory (`--task NAME`) against a successful
+real-provider replay and verifies cited IDs in producer values, their original
+Evidence links or the bridge audit. This verifies references observed in the
+transcript; the grader does not resolve every cited payload. It accepts
 JSON or one complete JSON fence, without repairing prose or partial values. This
 checks requested producer facts and reference existence, not runtime behavior or
 independent decompiler correctness. Unparseable result text is reported explicitly;
 IDs in a truncated JSON fragment cannot satisfy the automated reference check.
 The Android projection includes the provider's overload index, so a supported
 signature with that field omitted fails this stronger assertion.
+Firmware's run-local region UUIDs remain in answers but are excluded from parity
+against an independently acquired report. Classification evidence, explicit
+unknowns and coverage remain part of the requested fact checks.
 
 The supplied feedback is a research lead. Its Ghidra timing claim also changed
 auto-analysis options, so it does not isolate Code Mode's effect. Relevant primary

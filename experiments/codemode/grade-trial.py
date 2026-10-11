@@ -31,6 +31,28 @@ def read_answer(path):
 
 
 def requested_facts(value, task):
+    if task == 'native':
+        return {field: value.get(field) for field in [
+            'artifact_sha256', 'entry_address', 'containing_procedure',
+            'procedure', 'pseudocode_prefix', 'caller_count', 'callee_count']}
+    if task == 'electron-inventory':
+        return {field: value.get(field) for field in [
+            'artifact_sha256', 'manifest', 'entry_kind_counts', 'requested_paths',
+            'integrity_contradictions', 'coverage', 'unexplored_branches']}
+    if task == 'firmware':
+        result = value.get('result')
+        if not isinstance(result, dict):
+            result = {}
+        regions = result.get('regions')
+        if isinstance(regions, list) and all(isinstance(row, dict) for row in regions):
+            # Binwalk's UUID is run-local; preserve it in the answer but do not
+            # compare it with the independent replay's different occurrence ID.
+            regions = [{key: row.get(key) for key in [
+                'offset', 'reported_size', 'signature', 'description',
+                'reported_confidence', 'size_basis']} for row in regions]
+        return {'artifact_sha256': value.get('artifact_sha256'),
+                'engine': result.get('engine'), 'input_size': result.get('input_size'),
+                'regions': regions, 'coverage': result.get('coverage')}
     if task == 'managed':
         def selected(field, keys):
             row = value.get(field)
@@ -57,8 +79,10 @@ def producer_ids(reply):
     if not isinstance(reply, dict):
         return set(), 0
     ids = evidence_ids(reply.get('evidence_id'))
+    ids |= evidence_ids(reply.get('evidence_links'))
     for call in reply.get('calls', []):
         ids |= evidence_ids(call.get('evidence_id'))
+        ids |= evidence_ids(call.get('evidence_links'))
         ids |= evidence_ids(call.get('partial_evidence_id'))
     unreadable = 0
     # SDK envelopes and Codex JSONL use distinct declared field spellings.
@@ -84,7 +108,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--trial', type=Path, required=True)
     parser.add_argument('--oracle', type=Path, required=True)
-    parser.add_argument('--task', choices=['android', 'managed'], default='android')
+    parser.add_argument('--task', choices=[
+        'android', 'managed', 'native', 'firmware', 'electron-inventory'], default='android')
     args = parser.parse_args()
     oracle = json.loads(args.oracle.read_text())
     if oracle.get('failure') or not oracle.get('projection'):

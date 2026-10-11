@@ -16,6 +16,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', choices=['direct', 'client-code', 'bridge'], required=True)
     parser.add_argument('--prompt', type=Path, required=True)
+    parser.add_argument('--artifact-path', help='Replace {{artifact_path}} in a question template')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--model', default='gpt-5.6-terra')
     parser.add_argument('--reasoning', default='high')
@@ -125,12 +126,26 @@ def main():
         (trial_codex_home / 'config.toml').write_text(config)
         (trial_codex_home / 'config.toml').chmod(0o600)
         prompt = args.prompt.read_text()
+        template_digest = hashlib.sha256(prompt.encode()).hexdigest()
+        if '{{artifact_path}}' in prompt:
+            if not args.artifact_path or not os.path.isabs(args.artifact_path):
+                raise ValueError('A question template requires an absolute --artifact-path')
+            prompt = prompt.replace('{{artifact_path}}', args.artifact_path)
+        elif args.artifact_path:
+            raise ValueError('--artifact-path requires the literal template marker')
         (args.output / 'prompt.txt').write_text(prompt)
         (args.output / 'trial-settings.json').write_text(json.dumps({
             'mode': args.mode, 'model': args.model, 'reasoning': args.reasoning,
+            'experiment_commit': subprocess.check_output(
+                ['git', 'rev-parse', 'HEAD'], cwd=repository, text=True).strip(),
+            'experiment_sources_sha256': {
+                name: hashlib.sha256((experiment / name).read_bytes()).hexdigest()
+                for name in ['agent-trial.py', 'bridge.mjs', 'package-lock.json']
+            },
             'developer_instructions': instruction,
             'developer_instructions_sha256': hashlib.sha256(instruction.encode()).hexdigest(),
             'prompt_sha256': hashlib.sha256(prompt.encode()).hexdigest(),
+            'question_template_sha256': template_digest,
             'provider_settings_sha256': hashlib.sha256(
                 json.dumps(provider_env, sort_keys=True).encode()).hexdigest(),
             'features': {'shell_tool': False, 'unified_exec': False,

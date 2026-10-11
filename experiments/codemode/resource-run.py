@@ -63,6 +63,7 @@ def main():
     peak = 0
     peak_tasks = 0
     events = {}
+    cpu_stats = {}
     abort = None
     started = time.monotonic()
     try:
@@ -82,6 +83,8 @@ def main():
                 try:
                     peak = max(peak, int(current.read_text()))
                     peak_tasks = max(peak_tasks, int((group / 'pids.current').read_text()))
+                    cpu_stats = dict((key, int(value)) for key, value in
+                                     (line.split() for line in (group / 'cpu.stat').read_text().splitlines()))
                     for event_file in ['memory.events', 'pids.events']:
                         events[event_file] = dict(
                             (key, int(value)) for key, value in
@@ -115,6 +118,7 @@ def main():
             'cpu_affinity': [cpu],
             'task_ceiling': 192, 'peak_tasks_sampled': peak_tasks,
             'resource_events_last_observed': events,
+            'cpu_stat_last_observed': cpu_stats,
         }), file=sys.stderr)
     raise SystemExit(125 if abort else code)
 

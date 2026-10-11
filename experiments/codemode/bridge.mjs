@@ -59,7 +59,27 @@ export class CodeModeBridge {
     this.upstream = upstream;
     this.byName = new Map(upstream.catalog.map((tool) => [tool.name, tool]));
     this.catalogDigest = digest(upstream.catalog);
+    this.declarations = new Map();
     this.queue = Promise.resolve();
+  }
+
+  /** The live catalog is immutable for this connection; derive each type once. */
+  declarationsFor(tool) {
+    if (!this.declarations.has(tool.name)) {
+      const options = { bannerComment: "", format: false, unknownAny: true };
+      const pending = Promise.all([
+        compile(tool.inputSchema, `${tool.name}_Input`, options),
+        tool.outputSchema
+          ? compile(
+              { ...tool.outputSchema, title: `${tool.name}_Output` },
+              `${tool.name}_Output`,
+              options,
+            )
+          : undefined,
+      ]);
+      this.declarations.set(tool.name, pending);
+    }
+    return this.declarations.get(tool.name);
   }
 
   /** Search exposes original schemas and generated input types on demand. */
@@ -94,19 +114,16 @@ export class CodeModeBridge {
       .map(({ tool }) => ({ name: tool.name, description: tool.description }));
     const tools = [];
     for (const tool of selected) {
-      const inputType = includeSchemas
-        ? await compile(tool.inputSchema, `${tool.name}_Input`, {
-            bannerComment: "",
-            format: false,
-            unknownAny: true,
-          })
-        : undefined;
+      const [inputType, outputType] = includeSchemas
+        ? await this.declarationsFor(tool)
+        : [];
       tools.push(
         includeSchemas
           ? {
               ...tool,
               ...(!output_schemas ? { outputSchema: undefined } : {}),
               typescript: inputType,
+              output_typescript: outputType,
             }
           : {
               name: tool.name,
@@ -206,6 +223,8 @@ export class CodeModeBridge {
           try {
             const record = json(reply);
             if (record.evidence_id) audit.evidence_id = record.evidence_id;
+            if (Array.isArray(record.evidence_links))
+              audit.evidence_links = record.evidence_links;
             const partial = record.error?.details?.partial_observation;
             if (partial?.kind === "retained-evidence")
               audit.partial_evidence_id = partial.evidence_id;
@@ -318,7 +337,7 @@ export function createBridgeServer(bridge) {
     "rea_search",
     {
       description:
-        "Discover original REA tools. Start with one domain word, e.g. query=android; query words must all occur. Query/empty discovery defaults to names and descriptions. Then supply all selected exact names together to obtain original input schemas and TypeScript. schemas=true/false overrides this choice. Request output_schemas=true only when needed. catalog_sha256 hashes the SDK catalog, not REA server_identity.catalog.digests. Code calls tools.<name>(original_arguments); json(reply) parses the original MCP value.",
+        "Discover original upstream REA tools. Start with one domain word, e.g. query=android; query words must all occur. Query/empty discovery defaults to names and descriptions. Then supply all selected exact names together to obtain exact input schemas plus derived input/output TypeScript for code authoring. schemas=true/false overrides this choice. Request output_schemas=true only for original JSON validation contracts. rea_search and rea_execute are already declared bridge tools, not upstream catalog entries. catalog_sha256 hashes the SDK catalog, not REA server_identity.catalog.digests. Code calls tools.<name>(original_arguments); json(reply) parses the original MCP value.",
       inputSchema: z.strictObject({
         query: z.string().default(""),
         names: z.array(z.string()).default([]),

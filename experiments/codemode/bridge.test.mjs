@@ -39,12 +39,14 @@ test("discovery preserves exact current REA schemas and names", async () => {
   const original = upstream.catalog.find(
     (tool) => tool.name === "binary_session",
   );
-  const { typescript, ...discovered } = result.tools[0];
+  const { typescript, output_typescript, ...discovered } = result.tools[0];
   assert.deepEqual(discovered, original);
   assert.match(typescript, /export interface BinarySession_Input/);
+  assert.match(output_typescript, /export interface BinarySession_Output/);
   const inputOnly = await bridge.search({ names: ["binary_session"] });
   assert.deepEqual(inputOnly.tools[0].inputSchema, original.inputSchema);
   assert.equal(inputOnly.tools[0].outputSchema, undefined);
+  assert.equal(inputOnly.tools[0].output_typescript, output_typescript);
   const all = await bridge.search({ schemas: false });
   assert.deepEqual(
     all.tools.map((tool) => tool.name),
@@ -135,6 +137,7 @@ test("error after successful call preserves original Evidence reference", async 
   });
   assert.match(result.bridge_error.message, /after-call/);
   assert.ok(result.calls[0].evidence_id);
+  assert.ok(result.calls[0].evidence_links.length > 0);
   const readback = await upstream.call("get_evidence_bundle", {
     detail: "summary",
   });
@@ -142,6 +145,15 @@ test("error after successful call preserves original Evidence reference", async 
   assert.ok(
     JSON.stringify(json(readback)).includes(result.calls[0].evidence_id),
   );
+  for (const evidence_id of result.calls[0].evidence_links) {
+    const view = json(
+      await upstream.call("inspect_analysis_view", {
+        source: { kind: "retained-evidence", evidence_id },
+        view: { kind: "summary" },
+      }),
+    );
+    assert.equal(view.normalized_result.parent_evidence_id, evidence_id);
+  }
 });
 
 test("provider timeout retains its actual partial Evidence reference", async () => {
