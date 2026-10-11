@@ -17,7 +17,10 @@ import {
 } from "./javascriptSemanticTraversal.js";
 import { electronMemberPath } from "./javascriptElectronMemberWrites.js";
 import { SemanticPropertyPathCoverage } from "./javascriptSemanticPropertyPaths.js";
-import { unwrapJavaScriptExpression } from "./javascriptAstValues.js";
+import {
+  readExactJavaScriptLiteral,
+  unwrapJavaScriptExpression,
+} from "./javascriptAstValues.js";
 
 // Match the complete Rolldown runtime operations, including its live getters.
 // Names and formatting are irrelevant; lexical roles, operators and keys are not.
@@ -55,6 +58,7 @@ interface IntrinsicDependency {
 interface InteropOrigin {
   readonly origin: JavaScriptModuleOrigin;
   readonly dependencies: readonly IntrinsicDependency[];
+  readonly defaultIsModule: boolean;
 }
 
 interface InteropHelper {
@@ -275,17 +279,26 @@ export const createSemanticModuleInterop = (
     );
     const proof = helper === undefined ? undefined : helperProof(helper);
     const input = node.arguments[0];
+    const mode = node.arguments[1];
+    const literalMode =
+      mode === undefined
+        ? { found: true, value: false }
+        : t.isExpression(mode)
+          ? readExactJavaScriptLiteral(mode)
+          : { found: false };
     if (
       proof === undefined ||
       proof.readyAfter >= (node.start ?? -1) ||
       !t.isExpression(input) ||
-      (!proof.identity &&
-        (node.arguments.length !== 2 ||
-          !t.isNumericLiteral(node.arguments[1], { value: 1 })))
+      node.arguments.length > 2 ||
+      !literalMode.found
     )
       return undefined;
     return {
       input,
+      // A truthy node mode forces the module-valued default. Other modes
+      // preserve named exports without proving the source's default property.
+      defaultIsModule: !proof.identity && Boolean(literalMode.value),
       dependencies: proof.dependencies.map((dependency) => ({
         ...dependency,
         capturedAt: dependency.capturedAt ?? node,
@@ -296,7 +309,10 @@ export const createSemanticModuleInterop = (
   const callOrigin = (node: t.Node): InteropOrigin | undefined => {
     const cached = calls.get(node);
     if (cached !== undefined) return cached;
-    const converted = provenCall(node);
+    const { root, members } = electronMemberPath(node);
+    if (!members.every((member): member is string => member !== null))
+      return undefined;
+    const converted = provenCall(root);
     const required =
       converted === undefined
         ? undefined
@@ -304,10 +320,15 @@ export const createSemanticModuleInterop = (
     if (
       converted === undefined ||
       required === undefined ||
-      required.importedPath.length !== 0
+      required.importedPath.length !== 0 ||
+      (members[0] === "default" && !converted.defaultIsModule)
     )
       return undefined;
-    const result = { origin: required, dependencies: converted.dependencies };
+    const result = {
+      origin: { ...required, importedPath: members },
+      dependencies: converted.dependencies,
+      defaultIsModule: converted.defaultIsModule,
+    };
     calls.set(node, result);
     return result;
   };
@@ -315,9 +336,34 @@ export const createSemanticModuleInterop = (
   const origin = (
     binding: JavaScriptSemanticBindingState,
   ): InteropOrigin | undefined => {
-    const single = unprojectedInitializer(binding, state);
+    const single = semanticStableInitializer(binding, state);
     if (single !== undefined) {
-      const result = callOrigin(single);
+      if (
+        !single.projection.every(
+          (key): key is string => typeof key === "string",
+        )
+      )
+        return undefined;
+      const converted = callOrigin(single.node);
+      if (
+        converted?.origin.importedPath.length === 0 &&
+        single.projection[0] === "default" &&
+        !converted.defaultIsModule
+      )
+        return undefined;
+      const result =
+        converted === undefined
+          ? undefined
+          : {
+              ...converted,
+              origin: {
+                ...converted.origin,
+                importedPath: [
+                  ...converted.origin.importedPath,
+                  ...single.projection,
+                ],
+              },
+            };
       if (result !== undefined) origins.set(binding.bindingId, result);
       return result;
     }
@@ -373,6 +419,7 @@ export const createSemanticModuleInterop = (
     const result = {
       origin: required,
       dependencies: convertedCall.dependencies,
+      defaultIsModule: convertedCall.defaultIsModule,
     };
     origins.set(binding.bindingId, result);
     return result;

@@ -327,8 +327,12 @@ Electron API identity follows proven lexical module aliases. Namespace interop
 also preserves identity when the complete Rolldown helper operations, lexical
 roles, live getters, and captured intrinsic origins match, or when a stable
 helper simply returns its module parameter. Harmless single-statement control
-blocks preserve recognition; added operations still require proof. Recognition
-uses structure rather than emitted names; other helper bodies and ambiguous
+blocks preserve recognition; added operations still require proof. Literal
+member and destructuring projections are retained from proven results.
+Omitted or literal node-mode arguments preserve named exports; a module-valued
+default projection requires a truthy literal node mode. Computed or extra
+arguments remain unresolved.
+Recognition uses structure rather than emitted names; other helper bodies and ambiguous
 runtime fallbacks remain unresolved. Captured function identities survive later global-property
 replacement, including copies through initialized aliases. Reads before an
 alias initializer remain unresolved. Visible intrinsic writes before capture or

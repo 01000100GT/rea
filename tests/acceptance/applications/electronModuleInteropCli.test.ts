@@ -63,6 +63,10 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       new direct.BrowserWindow({});
       const fresh = __toESM(require("electron"), 1);
       new fresh.BrowserWindow({});
+      const {BrowserWindow: ProjectedWindow} = __toESM(require("electron"));
+      new ProjectedWindow({});
+      const nonNode = __toESM(require("electron"), 0);
+      new nonNode.BrowserWindow({});
       function identity(mod) {return mod;}
       const passthrough = identity(require("electron"));
       new passthrough.BrowserWindow({});
@@ -95,7 +99,7 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       .object({ normalized_result: javascriptApplicationAnalysisResultSchema })
       .parse(document).normalized_result;
     expect(result.summary).toMatchObject({
-      browser_windows: 5,
+      browser_windows: 7,
       preload_entrypoints: 1,
     });
     expect(result.statistics.parse_failures).toBe(0);
@@ -103,11 +107,11 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
     const windows = result.graph.nodes.filter(
       ({ kind }) => kind === "browser-window",
     );
-    expect(windows).toHaveLength(5);
+    expect(windows).toHaveLength(7);
     const expectedLines = source
       .split("\n")
       .flatMap((line, index) =>
-        /^\s*new (?:electron|direct|fresh|passthrough)\.BrowserWindow/u.test(
+        /^\s*new (?:(?:electron|direct|fresh|passthrough|nonNode)\.BrowserWindow|ProjectedWindow)\(/u.test(
           line,
         )
           ? [index + 1]

@@ -201,6 +201,78 @@ describe("Electron module interop uncertainty", () => {
 
 describe("Electron module interop helper results", () => {
   it.each([
+    'const {BrowserWindow} = __toESM(require("electron"), 1); new BrowserWindow({});',
+    'const {BrowserWindow: Window} = __toESM(require("electron"), 1); new Window({});',
+    'const {default: {BrowserWindow}} = __toESM(require("electron"), 1); new BrowserWindow({});',
+    'const Window = __toESM(require("electron"), 1).BrowserWindow; new Window({});',
+  ])("preserves a proven result projection: %s", (source) => {
+    expect(
+      analyzeJavaScriptStaticSource(`${ROLLDOWN_MODULE_INTEROP}\n${source}`)
+        .electron.browser_windows,
+    ).toHaveLength(1);
+  });
+
+  it.each([
+    'const {[key]: Window} = __toESM(require("electron"), 1); new Window({});',
+    'const {...electron} = __toESM(require("electron"), 1); new electron.BrowserWindow({});',
+    'let {BrowserWindow} = __toESM(require("electron"), 1); BrowserWindow = Fake; new BrowserWindow({});',
+  ])("keeps an uncertain result projection unresolved: %s", (source) => {
+    expect(
+      analyzeJavaScriptStaticSource(`${ROLLDOWN_MODULE_INTEROP}\n${source}`)
+        .electron.browser_windows,
+    ).toEqual([]);
+  });
+
+  it.each([
+    "",
+    ", 0",
+    ", false",
+    ", true",
+    ", 1",
+    ', "node"',
+    ', ""',
+    ", null",
+  ])("preserves named exports with a literal node mode: %s", (mode) => {
+    const analysis = analyzeJavaScriptStaticSource(`${ROLLDOWN_MODULE_INTEROP}
+        const fresh = __toESM(require("electron")${mode});
+        new fresh.BrowserWindow({});
+        const {BrowserWindow} = __toESM(require("electron")${mode});
+        new BrowserWindow({});
+        let electron = require("electron");
+        electron = __toESM(electron${mode}); ${WINDOW}
+      `);
+    expect(analysis.electron.browser_windows).toHaveLength(3);
+  });
+
+  it.each(["", ", 0", ", false"])(
+    "does not assume a module-valued default with node mode: %s",
+    (mode) => {
+      const analysis = analyzeJavaScriptStaticSource(`${ROLLDOWN_MODULE_INTEROP}
+        const original = require("electron");
+        original.__esModule = true;
+        original.default = {BrowserWindow: Fake};
+        const {default: {BrowserWindow}} = __toESM(require("electron")${mode});
+        new BrowserWindow({});
+        const other = __toESM(require("electron")${mode}).default;
+        new other.BrowserWindow({});
+        new (__toESM(require("electron")${mode}).default.BrowserWindow)({});
+      `);
+      expect(analysis.electron.browser_windows).toEqual([]);
+    },
+  );
+
+  it.each(["__toESM", "identity"])(
+    "rejects side-effecting extra arguments to %s",
+    (helper) => {
+      const analysis = analyzeJavaScriptStaticSource(`${ROLLDOWN_MODULE_INTEROP}
+        function identity(mod) { return mod; }
+        const electron = ${helper}(require("electron"), mutate()); ${WINDOW}
+      `);
+      expect(analysis.electron.browser_windows).toEqual([]);
+    },
+  );
+
+  it.each([
     "const __toESM = () => ({BrowserWindow:FakeWindow});",
     "const __toESM = async (mod) => mod;",
     "function* __toESM(mod) { return mod; }",
