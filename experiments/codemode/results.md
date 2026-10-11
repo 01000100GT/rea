@@ -43,5 +43,102 @@ threshold. Its 4 GiB hard ceiling and host-available-memory checks remain in for
 An earlier cached-build attempt was killed inside its 2 GiB scope; that is a
 failed build attempt, not evidence of a host OOM or a benchmark result.
 
-Real shipped-artifact investigations and provider parity are still unverified.
-The bridge is an experiment and has not changed any published REA contract.
+## Real shipped artifacts
+
+All acquired bytes match `corpus.json`; ShareX's archive also matches the GitHub
+asset digest and SQLite's npm archive matches its published SHA-512 integrity.
+No target was executed. These measurements use real REA providers and SDK stdio,
+with the same analysis arguments in each compared profile.
+
+NewPipe's direct, discovery-only replay and bridge replay produce equal selected
+facts, including exact target digest, package/version, two MainActivity matches,
+reported `onCreate` signature, overload index and unavailable DEX descriptor. The
+bridge retains all three real producer IDs. Discovery-only here is a replay cost
+decomposition, not an implemented new MCP client protocol.
+
+| Replay delivery                                    | Discovery estimate | Intermediate/final result estimate |
+| -------------------------------------------------- | -----------------: | ---------------------------------: |
+| Direct: input definitions only, text content once  |             107076 |                              94945 |
+| On-demand input definitions, original text content |                877 |                              94945 |
+| On-demand definitions, one composed projection     |                877 |                               1057 |
+
+The bridge also sends 290 estimated tokens of code. Estimates use `cl100k_base`;
+they are not Terra API tokens, latency or model task success. The direct baseline
+uses input definitions and single text content, avoiding an inflated comparison
+against duplicated MCP envelopes or unused output schemas. The full SDK envelope
+figures, where useful for local transport, are recorded separately.
+
+ShareX's real PE/CLI metadata and native-boundary workflows agree across direct
+and bridge: assembly ShareX 19.0.2.0, modern .NET, x86_64, framework
+`.NETCoreApp,Version=v9.0`, declared native boundaries and explicit coverage.
+Single text-content estimates are 204766 tokens for the two original results and
+4148 for the bridge projection. No .NET runtime behavior was verified.
+
+jq's original trial failed because the stripped shipped executable has no
+`jq_compile` symbol. The corrected direct trial uses the observed ELF entry
+`0x403a50`, resolves it to Ghidra's `entry` function and analyzes that function.
+It succeeds with retained Evidence and a closed ephemeral provider session.
+Bridge parity for the corrected workflow is pending. This small entry function
+does not establish large-function or complete native-analysis coverage.
+
+OpenWrt's original direct trial returned `unreadable_output` without the expected
+report. Twelve independent bounded Binwalk invocations produced reports. An
+observer launcher and a subsequent unchanged real Binwalk bridge trial succeeded,
+reporting uImage at offset 0 and SquashFS at 2741985 with `signature_scan` coverage.
+The observer is a diagnostic with a different launcher identity, not a benchmark
+baseline. The original failure remains unexplained; direct parity is pending.
+
+SQLite's actual WASM fails the frozen REA WABT output parser with `Unrecognized
+WABT section row`. WABT 1.0.42 prints the nine-character DataCount label without
+leading padding; the owning parser currently requires leading whitespace. No
+downstream shim is used, and no successful WASM provider claim is made.
+Obsidian's initial real-model analysis ended without Evidence after Codex's host
+closed stdout; a standalone SDK replay is pending. Neither failure is a Code Mode
+speedup.
+
+## Real Android agents
+
+After raising the task ceiling, a direct Terra trial completes in 107.478 seconds
+with 348556 API input tokens (292608 cached), 1815 output tokens and five completed
+MCP calls. All six strict producer-fact assertions and cited-ID checks pass. Its
+sampled peak is 1349251072 bytes and 127 tasks, with zero observed limit events.
+
+A client Code Mode trial passes the same assertions in 183.361 seconds with
+414869 input tokens (372480 cached), 3618 output tokens. The transcript must still
+be inspected before attributing native composition or filtering to that flag.
+
+The bridge trial before explicit projection guidance takes 84.754 seconds,
+292063 input tokens (244992 cached) and 1661 output tokens. It returns whole
+Evidence instead of filtering most intermediates. Requested facts and IDs are
+supported, but its stronger exact-projection check fails because overload index
+was omitted. A clarified question explicitly requires that index in later trials.
+
+The next bridge trial composes three calls and filters their results, but selects
+`normalized_result.engine.artifact_sha256` as the target hash. This is the Jadx
+bridge JAR identity, not the APK identity. The strict hash check fails. It takes
+166.411 seconds and 324417 input tokens (279040 cached), 2362 output tokens.
+This confirms a real provenance risk in model-written projections. Trial
+instructions now identify `Evidence.subject.digest.sha256` explicitly. This
+change has not yet established a reliable repeated model efficiency gain.
+
+The following bridge trial passes all six assertions and cited-ID checks, using
+one execution script for all three original operations. It takes 137.966 seconds,
+190313 input tokens (156672 cached) and 1695 output tokens. Four discovery calls
+precede the script. This is an encouraging token result, but its revised prompt,
+instructions and concurrent host workload prevent a controlled speed comparison.
+Instructions and prompt digests are now retained without authentication or an
+ambient environment snapshot, so future equal-task repetitions can be audited.
+
+The 6.1 sol diagnostic touched the 96-task limit; it is invalid as a comparison
+and was interrupted, with its copied profile removed. The wrapper now allows 192
+tasks, records task/memory limit events and rejects capacity-limited trials. A
+real thread-creation probe hit exactly 192 tasks, was stopped with exit 125 and
+retained its limit reason; it used about 12 MiB and caused no memory-limit event.
+The nine actual stdio boundary tests pass after discovery changes.
+
+Wall times above include contention on the same pinned CPU during exploratory
+work and differing prompts/instructions. They cannot support a controlled speed
+ratio. A reproducible efficiency conclusion requires successful equal-task trials
+and serial repetitions with the strongest existing-client baseline.
+
+The bridge remains an experiment and has not changed any published REA contract.

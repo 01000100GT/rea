@@ -79,6 +79,23 @@ export class CodeModeBridge {
               .includes(term),
           ),
     );
+    // Failed all-word searches keep their original semantics. Offer only the
+    // best positive lexical matches as names, without expanding their schemas.
+    const ranked =
+      selected.length || !terms.length || names.length
+        ? []
+        : this.upstream.catalog.map((tool) => ({
+            tool,
+            score: terms.filter((term) =>
+              `${tool.name} ${tool.description ?? ""}`
+                .toLowerCase()
+                .includes(term),
+            ).length,
+          }));
+    const bestScore = Math.max(0, ...ranked.map((row) => row.score));
+    const suggestions = ranked
+      .filter((row) => row.score === bestScore && bestScore > 0)
+      .map(({ tool }) => ({ name: tool.name, description: tool.description }));
     const tools = [];
     for (const tool of selected) {
       const inputType = schemas
@@ -107,6 +124,7 @@ export class CodeModeBridge {
       total_tools: this.byName.size,
       matched_tools: tools.length,
       tools,
+      ...(suggestions.length ? { suggestions } : {}),
     };
   }
 
@@ -321,7 +339,7 @@ export function createBridgeServer(bridge) {
     "rea_execute",
     {
       description:
-        "Run a JavaScript async function body with tools.<original_REA_name>(original_arguments), json(reply) and return. Await every call. One upstream session persists across executions. Calls run in order, including Promise.all. All original REA effects, validation and Evidence retention apply; returned projections are caller selections, not new Evidence. No host IO or imports. Call audit and Evidence IDs survive script errors. Default deadline 120s and guest memory 128 MiB; use longer deadline for native analysis.",
+        "Run a JavaScript async function body with tools.<original_REA_name>(original_arguments), json(reply) and return. Await every call. json(reply) returns the original REA value: Evidence has normalized_result, evidence_id and limitations; session values have result. Select the needed normalized_result fields inside code before returning them with Evidence IDs and limitations. One upstream session persists. Calls run in order, including Promise.all. All original REA effects, validation and retention apply; projections are caller selections, not new Evidence. No host IO or imports. Call audit and Evidence IDs survive script errors. Default deadline 120s and guest memory 128 MiB; use longer deadline for native analysis.",
       inputSchema: z.strictObject({
         code: z.string(),
         timeout_ms: z.number().int().positive().optional(),

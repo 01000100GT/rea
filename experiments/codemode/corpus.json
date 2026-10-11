@@ -2,6 +2,37 @@
   "schema_version": 1,
   "artifacts": [
     {
+      "id": "sharex.dll",
+      "file": "ShareX.dll",
+      "bytes": 2162688,
+      "sha256": "191a191be964e434daf0f9d76d1e0d8ddce90d7e248cba2a6b5ac9577f288d53",
+      "provenance": {
+        "project": "ShareX",
+        "version": "19.0.2",
+        "upstreamFile": "ShareX-19.0.2-portable.zip",
+        "url": "https://github.com/ShareX/ShareX/releases/download/v19.0.2/ShareX-19.0.2-portable.zip",
+        "transport_sha256": "967b5d838df5ce25fb5fd7cbd16f1bd797427e2df16907b022b74a4bc0fb9d54",
+        "transport_bytes": 168796487,
+        "derivation": "selected regular ZIP member ShareX.dll"
+      }
+    },
+    {
+      "id": "sqlite.wasm",
+      "file": "sqlite3.wasm",
+      "bytes": 868907,
+      "sha256": "2ee8f3dab694532afc8840e07703127287662d08b74e6ff50491ce63f00d5752",
+      "provenance": {
+        "project": "SQLite Wasm",
+        "version": "3.53.4-build1",
+        "upstreamFile": "sqlite-wasm-3.53.4-build1.tgz",
+        "url": "https://registry.npmjs.org/@sqlite.org/sqlite-wasm/-/sqlite-wasm-3.53.4-build1.tgz",
+        "transport_sha256": "24f46db4ce5248fa8f8f24b67e81909ab1a9c152f42a4796a32c6d385a6fb62b",
+        "transport_bytes": 977616,
+        "transport_integrity": "sha512-U8pvL0patYHMgieD8JxxYJTlh9m1LUX8+BDYb7MiKQzBI89f2qbdmdcG/PvnPaLm9wsBbv4VlVG453ixnxBOnA==",
+        "derivation": "selected regular tar member package/dist/sqlite3.wasm"
+      }
+    },
+    {
       "id": "obsidian.asar",
       "file": "obsidian-1.14.4.asar",
       "bytes": 27477966,

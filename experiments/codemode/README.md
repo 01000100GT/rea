@@ -69,6 +69,22 @@ Replay measurements establish mechanism costs, not model task accuracy or
 inference latency. Real-agent trials must additionally verify supported facts,
 source identity, omissions and preserved Evidence references.
 
+`benchmark.mjs` replays a fixed question against real providers with identical
+original arguments. For example:
+
+```bash
+python3 resource-run.py -- node benchmark.mjs --artifact newpipe.apk \
+  --mode bridge --artifact-root /absolute/path/artifacts \
+  --providers /absolute/path/selected-provider-settings.json \
+  --output /absolute/path/new-result-directory
+```
+
+Modes are `direct`, `discovery` and `bridge`. The discovery mode isolates catalog
+cost while retaining original results; it is not a new production MCP client.
+Raw responses remain outside Git. Result summaries separate complete envelopes
+from single text content and count code explicitly. Measured findings and failures
+are recorded in [results.md](results.md).
+
 `agent-trial.py` runs a real local Codex CLI with a disposable account/config and
 one MCP registration. It copies authentication only, removes the profile on every
 exit, and retains JSONL events, the answer and measured API usage outside the repo.
@@ -87,6 +103,12 @@ provider settings. No ambient environment snapshot is retained. A configured fla
 or a model's `tool_mode` does not prove the model actually composed tools or
 filtered an intermediate result. Inspect the transcript, and mark accuracy as
 unassessed until the requested facts and source support have been reviewed.
+`grade-trial.py` currently checks the Android task against a successful real-provider
+replay and verifies that cited IDs appeared as producer or bridge audit IDs. This
+checks producer parity and reference existence; it does not prove Android runtime
+behavior or independent correctness of the decompiler. Its strict projection also
+checks the provider's overload index, so an otherwise supported method signature
+with that field omitted fails this stronger assertion.
 
 The supplied feedback is a research lead. Its Ghidra timing claim also changed
 auto-analysis options, so it does not isolate Code Mode's effect. Relevant primary
@@ -101,3 +123,6 @@ memory ceiling, a 3 GiB early-stop threshold, no swap, and a task ceiling. It
 refuses to start when less than 8 GiB is available and stops if host available
 memory drops below 4 GiB. These limits protect the host; a resource abort is a
 failed measurement, never a successful benchmark. Also cap Node and Java heaps.
+The task ceiling is 192. The wrapper records observed memory/task events and
+stops a trial that touches the task limit. A limit event invalidates a measurement
+even when the application later returns successfully.

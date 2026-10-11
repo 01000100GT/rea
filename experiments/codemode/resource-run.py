@@ -16,6 +16,32 @@ def available_bytes():
     raise RuntimeError('MemAvailable unavailable')
 
 
+def scope_has_processes(group):
+    if group is None:
+        return False
+    try:
+        return bool((group / 'cgroup.procs').read_text().strip())
+    except FileNotFoundError:
+        return False
+
+
+def stop_owned_scope(unit, process, group):
+    subprocess.run(['systemctl', '--user', 'stop', '--no-block', unit],
+                   check=False, timeout=5)
+    for attempt in range(2):
+        deadline = time.monotonic() + 10
+        while process.poll() is None or scope_has_processes(group):
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(0.1)
+        else:
+            return
+        if attempt == 1:
+            raise RuntimeError('Cleanup unverified; retain owned scope ' + unit)
+        subprocess.run(['systemctl', '--user', 'kill', '--kill-who=all',
+                        '--signal=SIGKILL', unit], check=False, timeout=5)
+
+
 def main():
     args = sys.argv[1:]
     if args and args[0] == '--':
@@ -30,11 +56,13 @@ def main():
     command = [
         'systemd-run', '--user', '--scope', '--unit=' + unit,
         '-p', 'MemoryMax=4G', '-p', 'MemoryHigh=3G', '-p', 'MemorySwapMax=0',
-        '-p', 'CPUQuota=100%', '-p', 'TasksMax=96',
+        '-p', 'CPUQuota=100%', '-p', 'TasksMax=192',
         'taskset', '-c', str(cpu), *args,
     ]
     process = subprocess.Popen(command)
     peak = 0
+    peak_tasks = 0
+    events = {}
     abort = None
     started = time.monotonic()
     try:
@@ -51,27 +79,42 @@ def main():
                     group = Path('/sys/fs/cgroup') / path.lstrip('/')
             current = group / 'memory.current' if group else None
             if current and current.exists():
-                peak = max(peak, int(current.read_text()))
+                try:
+                    peak = max(peak, int(current.read_text()))
+                    peak_tasks = max(peak_tasks, int((group / 'pids.current').read_text()))
+                    for event_file in ['memory.events', 'pids.events']:
+                        events[event_file] = dict(
+                            (key, int(value)) for key, value in
+                            (line.split() for line in (group / event_file).read_text().splitlines())
+                        )
+                except FileNotFoundError:
+                    # A completed transient scope can disappear between reads.
+                    pass
             if peak > 3 * gib:
                 abort = 'scope_memory_early_stop'
             elif available_bytes() < 4 * gib:
                 abort = 'host_available_memory_early_stop'
+            elif events.get('pids.events', {}).get('max', 0):
+                abort = 'scope_task_limit_observed'
             if abort:
-                subprocess.run(['systemctl', '--user', 'stop', unit], check=False)
+                stop_owned_scope(unit, process, group)
                 break
             time.sleep(0.1)
         code = process.wait()
     except BaseException:
-        subprocess.run(['systemctl', '--user', 'stop', unit], check=False)
-        process.wait()
+        stop_owned_scope(unit, process, group)
         raise
     finally:
+        if scope_has_processes(group):
+            stop_owned_scope(unit, process, group)
         print(json.dumps({
             'resource_scope': unit, 'peak_cgroup_bytes_sampled': peak,
             'elapsed_seconds': round(time.monotonic() - started, 3),
             'abort': abort, 'hard_memory_bytes': 4 * gib,
             'early_stop_bytes': 3 * gib, 'cpu_quota_percent': 100,
             'cpu_affinity': [cpu],
+            'task_ceiling': 192, 'peak_tasks_sampled': peak_tasks,
+            'resource_events_last_observed': events,
         }), file=sys.stderr)
     raise SystemExit(125 if abort else code)
 

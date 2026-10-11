@@ -50,6 +50,14 @@ test("discovery preserves exact current REA schemas and names", async () => {
     all.tools.map((tool) => tool.name),
     upstream.catalog.map((tool) => tool.name),
   );
+  const missed = await bridge.search({
+    query: "android impossible_query_word",
+  });
+  assert.equal(missed.matched_tools, 0);
+  assert.ok(
+    missed.suggestions.some((tool) => tool.name === "inspect_android_package"),
+  );
+  assert.ok(missed.suggestions.every((tool) => tool.inputSchema === undefined));
 });
 
 test("raw original result and parsed result survive a real MCP call", async () => {
