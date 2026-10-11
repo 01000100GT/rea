@@ -336,9 +336,11 @@ overwrite the global intrinsic identity. Arbitrary cross-call side effects are n
 evaluated. Other reassignments, dynamic selections, and visibly overwritten
 namespace members are unresolved.
 Known Object/Reflect mutators remain recognizable through literal destructuring
-of intrinsic objects. Stable identifier chains to object/array literals keep those
-targets separate from intrinsic objects when initialized before use; opaque,
-reassigned or not-yet-initialized targets remain unresolved.
+of intrinsic objects. Stable identifier chains to fresh object, array, function,
+undecorated class or RegExp syntax keep those targets separate from intrinsic
+objects when initialized before use; opaque, decorated, reassigned or
+not-yet-initialized targets remain unresolved. Writes during class initialization
+are still retained.
 Direct and destructuring assignment, loop, update, and delete targets are checked
 through namespace aliases; unrelated member writes do not discard observed API
 identity. This static check does

@@ -251,6 +251,14 @@ describe("Electron module interop capture and scope", () => {
     "const metadata = {};",
     "const metadata = [];",
     "const initial = {}; const metadata = initial;",
+    "const metadata = () => {};",
+    "const metadata = function () {};",
+    "const metadata = async () => {};",
+    "const metadata = function* () {};",
+    "const metadata = class {};",
+    "const metadata = /local/;",
+    "function metadata() {}",
+    "class metadata {}",
   ])(
     "keeps a fresh mutator target separate from intrinsic identity: %s",
     (setup) => {
@@ -267,6 +275,8 @@ describe("Electron module interop capture and scope", () => {
     "let metadata = {}; metadata = Object;",
     "Object.defineProperty(metadata,'x',{value:1}); const metadata = {};",
     "const metadata = {intrinsic:Object}; Object.defineProperty(metadata.intrinsic,'create',{value:customCreate});",
+    "const metadata = class {static {Object.create = customCreate;}};",
+    "@(() => Object) class metadata {}",
   ])("keeps an unproven mutator target unresolved: %s", (setup) => {
     const analysis = analyzeJavaScriptStaticSource(`
       ${setup} Object.defineProperty(metadata,"x",{value:1});

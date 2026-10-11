@@ -142,7 +142,13 @@ export const createSemanticModuleInterop = (
     let current = node;
     for (;;) {
       current = unwrapJavaScriptExpression(current).node;
-      if (t.isObjectExpression(current) || t.isArrayExpression(current))
+      if (
+        t.isObjectExpression(current) ||
+        t.isArrayExpression(current) ||
+        t.isFunction(current) ||
+        (t.isClass(current) && !current.decorators?.length) ||
+        t.isRegExpLiteral(current)
+      )
         return true;
       if (!t.isIdentifier(current)) return false;
       const binding = resolveSemanticBindingState(state, current, current.name);

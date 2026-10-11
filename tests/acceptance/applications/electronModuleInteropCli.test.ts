@@ -28,6 +28,10 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
         "projected.cjs",
         'const {defineProperty:change} = Object; change(Object,"create",{value:customCreate});',
       ],
+      [
+        "decorated.cjs",
+        '@(() => Object) class metadata {}; Object.defineProperty(metadata,"create",{value:customCreate});',
+      ],
     ] as const)
       await writeFile(
         join(root, name),
@@ -40,6 +44,12 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       );
     const source = `const metadata = {};
       Object.defineProperty(metadata,"x",{value:1});
+      const localFunction = () => {};
+      Object.defineProperty(localFunction,"x",{value:1});
+      const localClass = class {};
+      Object.defineProperty(localClass,"x",{value:1});
+      const localRegExp = /local/;
+      Object.defineProperty(localRegExp,"x",{value:1});
       ${ROLLDOWN_MODULE_INTEROP}
       let electron = require("electron");
       electron = __toESM(electron, 1);
@@ -58,6 +68,7 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       function decoy(electron) {new electron.BrowserWindow({});}
       require("./poisoned.cjs");
       require("./projected.cjs");
+      require("./decorated.cjs");
       throw new Error("must not execute main");
     `;
     await writeFile(join(root, "main.cjs"), source);
@@ -84,7 +95,7 @@ cliTest.for(["CLI", "stdio MCP"] as const)(
       preload_entrypoints: 1,
     });
     expect(result.statistics.parse_failures).toBe(0);
-    expect(result.statistics.parsed_javascript_files).toBe(4);
+    expect(result.statistics.parsed_javascript_files).toBe(5);
     const windows = result.graph.nodes.filter(
       ({ kind }) => kind === "browser-window",
     );
