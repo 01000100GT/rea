@@ -6,7 +6,6 @@ import {
   unwrapJavaScriptExpression,
 } from "./javascriptAstValues.js";
 import { traverseJavaScriptAstSteps } from "./javascriptSemanticTraversal.js";
-import { stringValue } from "./javascriptStaticAnalysisHelpers.js";
 
 /** Match Electron's supported module entry points. */
 export const ELECTRON_MODULE =
@@ -44,6 +43,9 @@ export const electronMemberPath = (
 
 /** A known intrinsic callable and its examined positional arguments. */
 export interface JavaScriptIntrinsicInvocation {
+  readonly kind: "known" | "opaque";
+  /** The original bound receiver; rebinding cannot replace it. */
+  readonly receiver?: t.Node;
   readonly path: readonly string[];
   readonly arguments:
     | readonly t.CallExpression["arguments"][number][]
@@ -60,6 +62,7 @@ export function* collectJavaScriptIdentityWritesSteps(
   intrinsicInvocation: (
     node: t.CallExpression | t.OptionalCallExpression,
   ) => JavaScriptIntrinsicInvocation | undefined,
+  staticString: (node: t.Node | undefined) => string | undefined,
   freshObject: (node: t.Node) => boolean,
   retain: (node: t.Node, path: readonly (string | null)[]) => void,
 ): Generator<void> {
@@ -80,6 +83,11 @@ export function* collectJavaScriptIdentityWritesSteps(
     enter: (node) => {
       if (t.isCallExpression(node) || t.isOptionalCallExpression(node)) {
         const invocation = intrinsicInvocation(node);
+        if (invocation?.kind === "opaque") {
+          const scope = origin(node, "opaque-call");
+          if (scope !== undefined) retain(node, scope);
+          return;
+        }
         const callee = invocation?.path;
         const arguments_ = invocation?.arguments;
         const method = callee?.at(-1);
@@ -100,7 +108,7 @@ export function* collectJavaScriptIdentityWritesSteps(
             const exported = origin(root, "member");
             if (exported !== undefined) {
               const key = keyedMutators.has(method ?? "")
-                ? [stringValue(arguments_?.[1]) ?? null]
+                ? [staticString(arguments_?.[1]) ?? null]
                 : [];
               retain(node, [...exported, ...members, ...key]);
             } else if (!freshObject(target)) {

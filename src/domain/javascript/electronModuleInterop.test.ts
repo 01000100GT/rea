@@ -73,8 +73,36 @@ describe("Electron module interop identity", () => {
   });
 });
 
+const BOUND_INTRINSIC_MUTATIONS: [string, string][] = [
+  [
+    "intrinsic changed through aliased prebound arguments",
+    `const objectAlias = Object; const key = "create"; const define = Object.defineProperty; const mutate = define.bind(null, objectAlias, key); mutate({value:customCreate}); ${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP}`,
+  ],
+  [
+    "intrinsic changed through nested prebinding",
+    `const first = Object.defineProperty.bind(null, Object); const second = first.bind(null, "create"); second({value:customCreate}); ${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP}`,
+  ],
+  [
+    "a replaced bound mutator bind method is unknown",
+    `const first = Object.defineProperty.bind(null, Object); first.bind = customBind; const second = first.bind(null, "create"); second({value:customCreate}); ${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP}`,
+  ],
+  [
+    "intrinsic changed through a computed prebound call",
+    `const mutate = Object.defineProperty.bind(null, Object, "create"); mutate["call"](null, {value:customCreate}); ${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP}`,
+  ],
+  [
+    "intrinsic changed through a computed prebound apply",
+    `const mutate = Object.defineProperty.bind(null, Object, "create"); mutate["apply"](null, [{value:customCreate}]); ${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP}`,
+  ],
+  [
+    "a replaced bind intrinsic makes a prebound mutator unknown",
+    `Function.prototype.bind = customBind; const mutate = Object.defineProperty.bind(null, Object, "create"); mutate({value:customCreate}); ${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP}`,
+  ],
+];
+
 describe("Electron module interop uncertainty", () => {
   it.each([
+    ...BOUND_INTRINSIC_MUTATIONS,
     [
       "intrinsic changed through an unresolved mutator target",
       `Object.defineProperty(getTarget(), "create", {value:customCreate}); ${ROLLDOWN_MODULE_INTEROP}\n${IMPORT} ${WRAP}`,
@@ -564,6 +592,19 @@ describe("Electron module interop bound mutators", () => {
     'const change = Object.defineProperty.bind(null,...args); change(Object,"create",{value:customCreate});',
     'const metadata = {}; Object.defineProperty.call(...args,metadata,"x",{value:1});',
     'const metadata = {}; Object.defineProperty.apply(...args,[metadata,"x",{value:1}]);',
+    'const change = Function.prototype.call.bind(Object.defineProperty,null); change(Object,"create",{value:customCreate});',
+    'const first = Function.prototype.call.bind(Object.defineProperty,null); const change = first.bind(customReceiver,Object,"create"); change({value:customCreate});',
+    'const change = Function.prototype.apply.bind(Object.defineProperty,null); change([Object,"create",{value:customCreate}]);',
+    'Function.prototype.call.call(Object.defineProperty,null,Object,"create",{value:customCreate});',
+    'Function.prototype.apply.call(Object.defineProperty,null,[Object,"create",{value:customCreate}]);',
+    'const uncurry = Function.prototype.call.bind(Function.prototype.call); uncurry(Object.defineProperty,null,Object,"create",{value:customCreate});',
+    'const change = Function.prototype.bind.call(Object.defineProperty,null); change(Object,"create",{value:customCreate});',
+    'const bind = Function.prototype.call.bind(Function.prototype.bind); const change = bind(Object.defineProperty,null); change(Object,"create",{value:customCreate});',
+    'const change = Function.prototype.bind.apply(Object.defineProperty,[null,Object,"create"]); change({value:customCreate});',
+    'const change = Reflect.apply(Function.prototype.bind,Object.defineProperty,[null,Object,"create"]); change({value:customCreate});',
+    'const first = Object.defineProperty.bind(null,Object); const change = Function.prototype.bind.call(first,null,"create"); change({value:customCreate});',
+    'Reflect.apply = Object.defineProperty; Reflect.apply(Object,"create",{value:customCreate});',
+    'const apply = Reflect.apply; Reflect.apply = Object.defineProperty; Reflect.apply(Object,"create",{value:customCreate});',
     'const change = Reflect.set.bind(null,Object,"create"); change(customCreate);',
     'const change = Object.defineProperty.call; change.call(Object.defineProperty,null,Object,"create",{value:customCreate});',
     'const {apply:change} = Object.defineProperty; change.call(Object.defineProperty,null,[Object,"create",{value:customCreate}]);',
@@ -580,6 +621,13 @@ describe("Electron module interop bound mutators", () => {
     'const change = Object.defineProperty.bind(null); change(metadata,"x",{value:1});',
     'const change = Object.defineProperty.bind(null,metadata,"x"); change({value:1});',
     'const first = Object.defineProperty.bind(null,metadata); const change = first.bind(null,"x"); change({value:1});',
+    'const change = Function.prototype.call.bind(Object.defineProperty,null); change(metadata,"x",{value:1});',
+    'const change = Function.prototype.apply.bind(Object.defineProperty,null); change([metadata,"x",{value:1}]);',
+    'const change = Function.prototype.bind.call(Object.defineProperty,null,metadata,"x"); change({value:1});',
+    'const bind = Function.prototype.call.bind(Function.prototype.bind); const change = bind(Object.defineProperty,null,metadata,"x"); change({value:1});',
+    'const change = Function.prototype.bind.apply(Object.defineProperty,[null,metadata,"x"]); change({value:1});',
+    'const change = Reflect.apply(Function.prototype.bind,Object.defineProperty,[null,metadata,"x"]); change({value:1});',
+    'const apply = Reflect.apply; Reflect.apply = replacement; apply(Object.defineProperty,null,[metadata,"x",{value:1}]);',
     'const change = Object.defineProperty.bind(null,Object,"create");',
     'Object.defineProperty.call(null,metadata,"x",{value:1});',
     'Object.defineProperty.apply(null,[metadata,"x",{value:1}]);',
@@ -592,4 +640,15 @@ describe("Electron module interop bound mutators", () => {
       ).electron.browser_windows,
     ).toHaveLength(1);
   });
+});
+
+it("keeps unrelated exports after an aliased prebound key write", () => {
+  const analysis = analyzeJavaScriptStaticSource(`
+      const electron = require("electron");
+      const key = "Unrelated";
+      const mutate = Object.defineProperty.bind(null, electron, key);
+      mutate({value: custom});
+      new electron.BrowserWindow({});
+    `);
+  expect(analysis.electron.browser_windows).toHaveLength(1);
 });

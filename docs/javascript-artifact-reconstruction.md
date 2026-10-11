@@ -344,11 +344,15 @@ reassignments, dynamic selections, and visibly overwritten namespace members
 are unresolved.
 Known Object/Reflect mutators remain recognizable through literal destructuring
 of intrinsic objects and stable bound-function aliases. Calls retain bound
-argument prefixes through `call`, `apply`, and `Reflect.apply`; unexamined
-targets remain unresolved. Creating an unused binding does not itself mutate
-an intrinsic. Generic `Function.prototype.call` and `apply` follow the callable
-receiver, including a bound receiver; rebinding does not replace an earlier
-bound receiver. Variable redeclarations retain a single unconditional initializer
+argument prefixes and the original bound receiver through `call`, `apply`, and
+`Reflect.apply`, including generic `Function.prototype` invocation and binding
+creation. Arguments follow each actual callable invocation rather than property
+chain depth; rebinding retains the original bound receiver.
+Visibly replaced invocation intrinsics produce unknown effects instead
+of using their former call semantics; captured function aliases retain their
+earlier identity. Unexamined targets remain unresolved. Creating an unused
+binding does not itself mutate an intrinsic. Variable redeclarations retain a
+single unconditional initializer
 when they introduce no assignment or second initializer.
 Stable identifier chains to fresh object, array, function,
 undecorated class or RegExp syntax keep those targets separate from intrinsic

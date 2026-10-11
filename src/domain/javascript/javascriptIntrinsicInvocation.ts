@@ -5,11 +5,6 @@ import {
   semanticStaticPropertyKey,
   unwrapJavaScriptExpression,
 } from "./javascriptAstValues.js";
-import {
-  resolveSemanticBindingState,
-  semanticStableInitializer,
-  type JavaScriptSemanticAnalysisState,
-} from "./javascriptSemanticState.js";
 
 const arrayArguments = (array: t.Node | undefined) =>
   t.isArrayExpression(array) &&
@@ -35,88 +30,86 @@ const invocationArguments = (
  */
 export const resolveJavaScriptIntrinsicInvocation = (
   node: t.CallExpression | t.OptionalCallExpression,
-  state: JavaScriptSemanticAnalysisState,
   intrinsicPath: (node: t.Node) => readonly string[] | undefined,
+  boundIntrinsic: (node: t.Node) => JavaScriptIntrinsicInvocation | undefined,
+  intrinsicReadChanged: (node: t.Node, path: readonly string[]) => boolean,
 ): JavaScriptIntrinsicInvocation | undefined => {
-  const visited = new Set<string>();
+  const visited = new Set<t.Node>();
   let callee: t.Node = node.callee;
   let arguments_: JavaScriptIntrinsicInvocation["arguments"] = node.arguments;
-  let thisArgument: t.Node | undefined;
+  let receiver: t.Node | undefined;
   let explicitReceiver = false;
   for (;;) {
     callee = unwrapJavaScriptExpression(callee).node;
-    const path = intrinsicPath(callee);
-    const method =
-      path !== undefined && path.length > 3 ? path.at(-1) : undefined;
+    if (visited.has(callee)) return undefined;
+    visited.add(callee);
+    let path = intrinsicPath(callee);
+    if (path !== undefined && intrinsicReadChanged(callee, path))
+      return { kind: "opaque", path, arguments: undefined };
+    if (path === undefined) {
+      if (
+        t.isMemberExpression(callee) ||
+        t.isOptionalMemberExpression(callee)
+      ) {
+        const method = semanticStaticPropertyKey(
+          callee.property,
+          callee.computed,
+        );
+        if (method === "call" || method === "apply") {
+          const bound = boundIntrinsic(callee.object);
+          if (
+            bound !== undefined &&
+            intrinsicReadChanged(callee, [...bound.path, method])
+          )
+            return { kind: "opaque", path: bound.path, arguments: undefined };
+          receiver = arguments_?.[0];
+          explicitReceiver = true;
+          callee = callee.object;
+          arguments_ = invocationArguments(method, arguments_);
+          continue;
+        }
+      }
+      const bound = boundIntrinsic(callee);
+      if (bound === undefined) return undefined;
+      if (bound.kind === "opaque") return bound;
+      path = bound.path;
+      receiver = bound.receiver;
+      explicitReceiver = true;
+      arguments_ =
+        bound.arguments === undefined
+          ? undefined
+          : [...bound.arguments, ...(arguments_ ?? [])];
+    }
+    const method = path.length > 3 ? path.at(-1) : undefined;
     if (method === "call" || method === "apply") {
       // These properties hold generic function values. Their receiver selects
       // the callable; property-chain depth does not consume more arguments.
       const callable: t.Node | undefined = explicitReceiver
-        ? thisArgument
+        ? receiver
         : t.isMemberExpression(callee) || t.isOptionalMemberExpression(callee)
           ? callee.object
           : undefined;
       if (!t.isExpression(callable)) return undefined;
       callee = callable;
-      thisArgument = arguments_?.[0];
+      receiver = arguments_?.[0];
       explicitReceiver = true;
       arguments_ = invocationArguments(method, arguments_);
       continue;
     }
-    if (path?.join(".") === "intrinsic.Reflect.apply") {
+    if (path.join(".") === "intrinsic.Reflect.apply") {
       const callable = arguments_?.[0];
       if (!t.isExpression(callable)) return undefined;
       callee = callable;
-      thisArgument = arguments_?.[1];
+      receiver = arguments_?.[1];
       explicitReceiver = true;
       arguments_ = arrayArguments(arguments_?.[2]);
       continue;
     }
-    if (path !== undefined) return { path, arguments: arguments_ };
-    if (t.isMemberExpression(callee) || t.isOptionalMemberExpression(callee)) {
-      const method = semanticStaticPropertyKey(
-        callee.property,
-        callee.computed,
-      );
-      if (method === "call" || method === "apply") {
-        callee = callee.object;
-        thisArgument = arguments_?.[0];
-        explicitReceiver = true;
-        arguments_ = invocationArguments(method, arguments_);
-        continue;
-      }
-    }
-    if (t.isCallExpression(callee) || t.isOptionalCallExpression(callee)) {
-      const binder: t.Node = unwrapJavaScriptExpression(callee.callee).node;
-      if (
-        (!t.isMemberExpression(binder) &&
-          !t.isOptionalMemberExpression(binder)) ||
-        semanticStaticPropertyKey(binder.property, binder.computed) !== "bind"
-      )
-        return undefined;
-      const prefix = callee.arguments.slice(1);
-      // An inner bind owns the receiver even when the result is rebound.
-      thisArgument = callee.arguments[0];
-      explicitReceiver = true;
-      arguments_ = t.isSpreadElement(callee.arguments[0])
-        ? undefined
-        : prefix.length === 0
-          ? arguments_
-          : [...prefix, ...(arguments_ ?? [])];
-      callee = binder.object;
-      continue;
-    }
-    if (!t.isIdentifier(callee)) return undefined;
-    const binding = resolveSemanticBindingState(state, callee, callee.name);
-    const initializer = semanticStableInitializer(binding, state);
-    if (
-      binding === undefined ||
-      initializer === undefined ||
-      initializer.projection.length !== 0 ||
-      visited.has(binding.bindingId)
-    )
-      return undefined;
-    visited.add(binding.bindingId);
-    callee = initializer.node;
+    return {
+      kind: "known",
+      path,
+      arguments: arguments_,
+      ...(receiver === undefined ? {} : { receiver }),
+    };
   }
 };
