@@ -10,7 +10,10 @@ import {
   type JavaScriptSemanticBindingState,
 } from "./javascriptSemanticState.js";
 import { semanticRequireOrigin } from "./javascriptSemanticRequireOrigin.js";
-import { childNodes } from "./javascriptSemanticTraversal.js";
+import {
+  childNodes,
+  javaScriptAstChildKeys,
+} from "./javascriptSemanticTraversal.js";
 import { electronMemberPath } from "./javascriptElectronMemberWrites.js";
 import { SemanticPropertyPathCoverage } from "./javascriptSemanticPropertyPaths.js";
 
@@ -431,7 +434,7 @@ const canonicalRoles = (
       roles.set(expected.name, binding);
       used.set(binding.bindingId, expected.name);
     }
-    const visitorKeys = t.VISITOR_KEYS[expected.type] ?? [];
+    const visitorKeys = javaScriptAstChildKeys(expected);
     for (const [key, field] of Object.entries(
       t.NODE_FIELDS[expected.type] ?? {},
     )) {
