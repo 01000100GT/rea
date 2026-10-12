@@ -9,8 +9,10 @@ evidence the reader can inspect, and a useful next step. A clean, refined
 appearance comes from precise wording, readable figures, consistent typography
 and deliberate spacing.
 
-Use this guide for new pages and revisions. Start from an existing page and
-reuse `public/assets/styles.css` and `public/assets/main.js`. Local preview and
+Use this guide for new pages and revisions. Create the common page structure
+with `python3 scripts/website.py new-page`, then reuse the relevant components
+from an existing page, `public/assets/styles.css` and `public/assets/main.js`.
+Keep shared regions in sync with `templates/`. Contribution, preview and
 publication commands are in [README.md](README.md).
 
 ## What a reader should understand
@@ -23,6 +25,13 @@ These are reading goals, not a requirement to fit every investigation above the
 fold. Keep the main path short and let readers open the supporting details.
 
 ## Write the task directly
+
+Write the English source first. Keep translated wording just as concrete: a
+reader should understand the question, the evidence and the next action without
+decoding a literal translation. Preserve commands, code and recorded values.
+Read a whole example together when reviewing its translation. Check headings,
+figures and interactive labels at phone widths, including right-to-left editions.
+The [translation guide](locales/README.md) explains the catalogs and update process.
 
 Name the software, behavior or action in headings. Give the opening paragraph
 one job: explain what the page covers. Use concrete verbs such as install, trace,
@@ -210,14 +219,20 @@ display size; scaling small labels down is not a mobile layout.
 
 The shared stylesheet defines the site. Its core colors are:
 
-| Token      | Value     | Use                              |
-| ---------- | --------- | -------------------------------- |
-| `--page`   | `#ffffff` | Page background                  |
-| `--ink`    | `#20252b` | Main text                        |
-| `--muted`  | `#5b6570` | Secondary text                   |
-| `--line`   | `#e0e5e9` | Section and component boundaries |
-| `--soft`   | `#f4f6f8` | Code and supporting surfaces     |
-| `--accent` | `#294f82` | Links and meaningful highlights  |
+| Token      | Light     | Dark      | Use                              |
+| ---------- | --------- | --------- | -------------------------------- |
+| `--page`   | `#ffffff` | `#1e1e2e` | Page background                  |
+| `--ink`    | `#20252b` | `#cdd6f4` | Main text                        |
+| `--muted`  | `#5b6570` | `#a6adc8` | Secondary text                   |
+| `--line`   | `#e0e5e9` | `#45475a` | Section and component boundaries |
+| `--soft`   | `#f4f6f8` | `#181825` | Code and supporting surfaces     |
+| `--accent` | `#294f82` | `#89b4fa` | Links and meaningful highlights  |
+
+The light values are the default. When the reader's system is set to dark, a
+`prefers-color-scheme: dark` block at the end of the stylesheet swaps in the dark
+values, which are [Catppuccin Mocha](https://github.com/catppuccin/palette)
+(MIT). There is no toggle. Any new fixed color needs a dark counterpart in
+that block.
 
 Use the system sans-serif stack for prose and the shared monospace stack for
 code. The current container is at most 1080px wide, with article text limited to

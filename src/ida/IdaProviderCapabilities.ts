@@ -3,14 +3,14 @@ import type {
   CapabilityDescriptor,
 } from "../application/AnalysisProvider.js";
 
-/** This version identifies REA's adapter, not IDA or the upstream Python package. */
+/** This version identifies REA's adapter, not IDA or the upstream MCP server. */
 export const IDA_PROVIDER_IDENTITY = Object.freeze({
   id: "ida",
-  name: "IDA Pro MCP adapter",
+  name: "IDA MCP adapter",
   version: "1",
 });
 
-/** Read-only analyst outcomes supported by both upstream compatibility profiles. */
+/** Read-only analyst outcomes supported by the upstream compatibility profiles. */
 export const IDA_OPERATIONS = Object.freeze([
   "list_procedures",
   "search_procedures",
@@ -37,6 +37,18 @@ export const IDA_LIMITATIONS = Object.freeze([
   "Complete function body ranges, typed references, unresolved indirect calls, referenced data, and basic blocks are unavailable in this adapter. Empty unsupported dossier facets are unknown, not observed absence.",
 ]);
 
+/**
+ * Attached mode requires the legacy 1.4 profile, whose `disassemble_function`
+ * jumps to the function and whose `decompile_function` opens or reuses a
+ * pseudocode view whenever an IDA window is active.
+ */
+const ATTACHED_GUI_NAVIGATION_OPERATIONS: ReadonlySet<IdaOperation> = new Set([
+  "procedure_pseudo_code",
+  "procedure_assembly",
+  "read_function_instructions",
+  "analyze_function",
+]);
+
 /** Advertise live observations and configured lifecycle effects truthfully. */
 export const idaCapabilities = (
   mode: "attached" | "headless",
@@ -59,9 +71,11 @@ export const idaCapabilities = (
       mutatesArtifact: false,
       launchesProcess: stdio || mode === "headless",
       mayShowUi:
-        native &&
-        (operation === "procedure_pseudo_code" ||
-          operation === "analyze_function"),
+        mode === "attached" &&
+        (native
+          ? operation === "procedure_pseudo_code" ||
+            operation === "analyze_function"
+          : ATTACHED_GUI_NAVIGATION_OPERATIONS.has(operation)),
       mayAccessNetwork: true,
       mayWriteFilesystem: stdio || mode === "headless",
       changesPermissions: false,

@@ -17,6 +17,7 @@ const { values } = parseArgs({
     target: { type: "string" },
     procedure: { type: "string", default: "rea_fixture_add" },
     "second-procedure": { type: "string" },
+    "second-marker": { type: "string" },
     "package-root": { type: "string" },
     report: { type: "string" },
   },
@@ -24,6 +25,14 @@ const { values } = parseArgs({
 if (values.target === undefined || process.env.REA_IDA_MCP_CONFIG === undefined)
   throw new Error(
     "IDA verification requires --target and REA_IDA_MCP_CONFIG; see docs/ida-provider.md. No toolchain is installed by this lane.",
+  );
+if (
+  (values["second-procedure"] === undefined) !==
+    (values["second-marker"] === undefined) ||
+  values["second-marker"] === ""
+)
+  throw new Error(
+    "IDA verification requires --second-procedure and a nonempty --second-marker together; choose a marker unique to the second function's pseudocode.",
   );
 const packageRoot = resolve(
   values["package-root"] ?? fileURLToPath(new URL("..", import.meta.url)),
@@ -185,6 +194,14 @@ const mcp = async (cliDossier) => {
       );
       assert.equal(typeof secondCode, "string");
       assert.ok(secondCode.length > 0);
+      assert.ok(
+        !dossier.pseudocode.includes(values["second-marker"]),
+        "The second marker also appears in the first function's pseudocode.",
+      );
+      assert.ok(
+        secondCode.includes(values["second-marker"]),
+        "The second function's pseudocode omitted its expected marker.",
+      );
       const restored = observe(
         await call("procedure_pseudo_code", {
           procedure: dossier.procedure.address,
@@ -192,7 +209,7 @@ const mcp = async (cliDossier) => {
       );
       assert.equal(restored, dossier.pseudocode);
       report.checks.push(
-        "different-function pseudocode and return to the original function",
+        "second-function pseudocode identity and return to the original function",
       );
     }
     const invalid = await client.callTool({

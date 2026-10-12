@@ -142,8 +142,9 @@ describe("native IDA Free attached protocol", () => {
     expect(provider.inspectAvailability().status).toBe("available");
     const profile = await provider.resolveAnalysisProfile(target);
     if (!profile.ok) throw profile.error;
+    expect(profile.value.profile.provider.name).toBe("IDA MCP adapter");
     expect(profile.value.profile.parameters).toMatchObject({
-      compatibility_profile: "native-ida-free",
+      compatibility_profile: "native-ida-mcp",
       mode: "attached",
       cache_policy: "live",
       engine_version: null,
@@ -154,6 +155,12 @@ describe("native IDA Free attached protocol", () => {
         .find(({ operation }) => operation === "procedure_pseudo_code")?.effects
         .mayShowUi,
     ).toBe(true);
+    expect(
+      provider
+        .capabilities()
+        .find(({ operation }) => operation === "procedure_assembly")?.effects
+        .mayShowUi,
+    ).toBe(false);
     expect(producer.connects).toBe(0);
   });
 
@@ -205,6 +212,7 @@ describe("native IDA Free provider observations", () => {
             : { procedure: "main" },
       );
       if (!result.ok) throw result.error;
+      expect(result.value.provider.name).toBe("IDA MCP adapter");
       if (operation === "procedure_assembly")
         expect(result.value.result).toBe("0x1000: ret");
       if (operation === "procedure_pseudo_code") {

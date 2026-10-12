@@ -1,6 +1,3 @@
-import { createHash } from "node:crypto";
-
-import canonicalize from "canonicalize";
 import { z } from "zod";
 
 import {
@@ -28,6 +25,10 @@ import {
   bridgeCandidateCoverageSchema,
   projectCartesianCandidates,
 } from "../bridgeCandidateProjection.js";
+import {
+  compareProjectionStrings,
+  projectionDigest,
+} from "../mobileApplicationGraphProjection.js";
 
 const evidenceIdSchema = prefixedDigestSchema("ev");
 const pathSchema = z.string().min(1);
@@ -431,16 +432,12 @@ const projectionLimitations = (facts: {
     : []),
   "Bundle roles follow path conventions. Read each info_plist_path with inspect_plist for CFBundleExecutable, identifiers, and declared services.",
   "Bundle identifiers and signing claims require dedicated plist and CMS parsing; this projection reports only exact paths and hashes.",
-  "Runtime families are inferred from inventory formats and paths.",
+  "Runtime families are inferred from inventory formats and bounded framework path conventions, not observed runtime loading.",
+  "Generic framework and dylib paths do not establish Swift or Objective-C; this inventory projection does not decode language metadata.",
   "Bridge candidates are path-based hypotheses, not observed runtime calls.",
   "A bridge basis is inferred from the native path and is repeated for every managed component.",
 ];
 
-const compare = (left: string, right: string): number =>
-  left < right ? -1 : left > right ? 1 : 0;
-const digest = (value: unknown): string => {
-  const encoded = canonicalize(value);
-  if (encoded === undefined)
-    throw new TypeError("Apple application projection is not canonical JSON");
-  return createHash("sha256").update(encoded).digest("hex");
-};
+const compare = compareProjectionStrings;
+const digest = (value: unknown): string =>
+  projectionDigest(value, "Apple application projection");
