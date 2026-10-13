@@ -37,9 +37,10 @@ it.skipIf(process.platform === "win32")(
     );
     if (definition?.outputSchema === undefined)
       throw new Error("Missing APK schema");
+    const outputSchema: Record<string, unknown> = definition.outputSchema;
     const ajv = new Ajv2020({ strict: false, validateFormats: false });
     expect(ajv.validateSchema(definition.inputSchema)).toBe(true);
-    expect(ajv.validateSchema(definition.outputSchema)).toBe(true);
+    expect(ajv.validateSchema(outputSchema)).toBe(true);
     expect(
       ajv.validate(definition.inputSchema, { path: apk, detail: "summary" }),
     ).toBe(true);
@@ -60,7 +61,7 @@ it.skipIf(process.platform === "win32")(
     });
     expect(reply.isError).not.toBe(true);
     expect(
-      ajv.validate(definition.outputSchema, reply.structuredContent),
+      ajv.validate(outputSchema, reply.structuredContent),
       JSON.stringify(ajv.errors),
     ).toBe(true);
     const receipt = parseEvidence(reply.structuredContent);
