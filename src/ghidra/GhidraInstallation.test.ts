@@ -44,6 +44,11 @@ const host = (
   ...overrides,
 });
 
+const elfHeader = (class_: number, endian: number, machine: number) => {
+  const bytes = elf(class_, endian, machine);
+  return { bytes, size: bytes.length };
+};
+
 afterEach(() => {
   vi.unstubAllEnvs();
 });
@@ -581,9 +586,7 @@ describe("Ghidra native decompiler admission", () => {
         architecture: "x64" as const,
       },
       executableHeader: (path: string) =>
-        path === LINUX_DECOMPILER
-          ? { bytes: elf(1, 1, 8), size: 52 }
-          : undefined,
+        path === LINUX_DECOMPILER ? elfHeader(1, 1, 8) : undefined,
     },
     {
       name: "a Linux x86-64 decompiler at the macOS arm64 path",
@@ -594,9 +597,7 @@ describe("Ghidra native decompiler admission", () => {
         architecture: "arm64" as const,
       },
       executableHeader: (path: string) =>
-        path === MAC_DECOMPILER
-          ? { bytes: elf(2, 1, 62), size: 52 }
-          : undefined,
+        path === MAC_DECOMPILER ? elfHeader(2, 1, 62) : undefined,
     },
     {
       name: "a macOS arm64 decompiler at the Linux x64 path",
@@ -632,9 +633,7 @@ describe("Ghidra native decompiler admission", () => {
       },
       host({
         executableHeader: (path: string) =>
-          path === LINUX_DECOMPILER
-            ? { bytes: elf(2, 1, 62), size: 52 }
-            : undefined,
+          path === LINUX_DECOMPILER ? elfHeader(2, 1, 62) : undefined,
       }),
     );
     expect(result.status).toBe("available");
@@ -701,9 +700,7 @@ describe("Ghidra native decompiler admission", () => {
       },
       host({
         executableHeader: (path: string) =>
-          path === MAC_DECOMPILER
-            ? { bytes: elf(2, 1, 62), size: 52 }
-            : undefined,
+          path === MAC_DECOMPILER ? elfHeader(2, 1, 62) : undefined,
       }),
     );
     expect(result.status).toBe("unavailable");
